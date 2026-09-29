@@ -7,6 +7,7 @@
             <h2 class="h3 fw-bold text-dark mb-0">Audit Logs</h2>
             <p class="text-secondary mb-0">Personnel time in and time out activity recorded from the mobile app.</p>
         </div>
+        <span class="live-indicator text-success fw-semibold d-inline-flex align-items-center gap-1"><span class="dot"></span> Live</span>
     </div>
 
     <div class="card border-0 shadow-sm rounded-3 mb-4">
@@ -57,6 +58,7 @@
         </div>
     </div>
 
+    <div data-live="audit-logs">
     <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -72,7 +74,7 @@
                 </thead>
                 <tbody class="text-dark">
                     @forelse($logs as $log)
-                        <tr>
+                        <tr data-live-key="audit-{{ $log->id }}">
                             <td class="px-4 py-3 text-nowrap fw-bold">{{ $log->logged_at->format('M d, Y') }}</td>
                             <td class="py-3 text-nowrap">{{ $log->logged_at->format('h:i A') }}</td>
                             <td class="py-3">
@@ -103,6 +105,7 @@
 
     <div class="mt-4 d-flex justify-content-center">
         {{ $logs->links('pagination::bootstrap-5') }}
+    </div>
     </div>
 </div>
 @endsection

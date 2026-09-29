@@ -58,9 +58,9 @@ class _PersonnelTrackerScreenState extends State<PersonnelTrackerScreen> {
   void initState() {
     super.initState();
     _fetchPersonnelLocations();
-    // Periodically refresh locations every 10 seconds
+    // Periodically refresh locations every 5 seconds
     _refreshTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 5),
       (_) => _fetchPersonnelLocations(),
     );
   }

@@ -5,12 +5,12 @@
     <div class="row mb-4">
         <div class="col-12">
             <h2 class="fw-bold">Administrator Dashboard</h2>
-            <p class="text-muted">Overview of the Quick Response Team Management System.</p>
+            <p class="text-muted">Overview of the Quick Response Team Management System. <span class="live-indicator text-success fw-semibold d-inline-flex align-items-center gap-1"><span class="dot"></span> Live</span></p>
         </div>
     </div>
 
     <!-- Statistics Cards -->
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4" data-live="dashboard-stats">
         <div class="col-md-3">
             <div class="card border-0 shadow-sm bg-primary text-white h-100">
                 <div class="card-body">
@@ -115,9 +115,9 @@
                                     <th class="text-end pe-4">Action</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody data-live="dashboard-recent">
                                 @forelse($recentReports as $report)
-                                    <tr>
+                                    <tr data-live-key="report-{{ $report->id }}">
                                         <td class="ps-4 fw-bold text-primary">#INC-{{ $report->id }}</td>
                                         <td>
                                             <span class="badge rounded-pill bg-{{ $report->status == 'resolved' ? 'success' : 'info' }}">

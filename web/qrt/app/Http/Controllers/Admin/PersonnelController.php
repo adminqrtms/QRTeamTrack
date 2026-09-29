@@ -151,7 +151,7 @@ class PersonnelController extends Controller
      * Track Personnel using GPS Tracker.
      * Displays a map view with the latest location of all personnel.
      */
-    public function monitor()
+    public function monitor(Request $request)
     {
         // Fetch personnel with their most recent location
         $personnels = User::where('role', 'personnel')
@@ -164,6 +164,11 @@ class PersonnelController extends Controller
             $person->last_seen_time = $person->last_seen ? \Carbon\Carbon::parse($person->last_seen)->diffForHumans() : 'Unknown';
             return $person;
         });
+
+        // The monitor map polls this endpoint for live marker updates.
+        if ($request->wantsJson()) {
+            return response()->json($personnels);
+        }
 
         return view('admin.personnels.monitor', compact('personnels'));
     }
