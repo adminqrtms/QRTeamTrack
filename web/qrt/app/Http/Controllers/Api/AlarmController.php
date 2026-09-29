@@ -44,7 +44,8 @@ class AlarmController extends Controller
         }
         
         // Prioritize 'triggered' alarms so they appear first in the API response
-        $alarms = $query->orderByRaw("FIELD(status, 'triggered', 'responding', 'responded', 'resolved', 'false_alarm')")
+        // CASE instead of MySQL's FIELD() so this also works on SQLite
+        $alarms = $query->orderByRaw("CASE status WHEN 'triggered' THEN 1 WHEN 'responding' THEN 2 WHEN 'responded' THEN 3 WHEN 'resolved' THEN 4 WHEN 'false_alarm' THEN 5 ELSE 6 END")
             ->latest()
             ->get();
             

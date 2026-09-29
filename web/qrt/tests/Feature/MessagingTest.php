@@ -10,11 +10,9 @@ use App\Models\Conversation;
 use App\Models\Location;
 use App\Models\Report;
 use App\Models\User;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -30,15 +28,6 @@ class MessagingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        // Migration 2026_03_25_160000 renames these report columns, but the
-        // Report model still uses the original names. Align the test schema
-        // with the model so report-based chats can be exercised.
-        Schema::table('reports', function (Blueprint $table) {
-            $table->renameColumn('resident_id', 'user_id');
-            $table->renameColumn('concern', 'title');
-            $table->renameColumn('assigned_personnel_id', 'assigned_to');
-        });
 
         $this->location = Location::create(['location_name' => 'Station 1', 'barangay' => 'Poblacion', 'latitude' => 0, 'longitude' => 0]);
 
