@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\ResidentController;
+use App\Http\Controllers\Admin\AuditLogController;
 use App\Models\Personnel;
 use App\Models\Location;
 use App\Models\Schedule;
@@ -68,6 +69,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');
         Route::post('reports/{report}/status', [ReportController::class, 'updateStatus'])->name('reports.update-status');
         Route::get('reports-monthly', [ReportController::class, 'monthly'])->name('reports.monthly');
+
+        // Audit Logs
+        Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     });
 
     // Personnel Routes
