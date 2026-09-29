@@ -1,0 +1,44 @@
+# QRTeamTrack – Progress Notes
+
+**Working branch:** `claude/vigilant-noether-tn3lmd` (contains everything below; not yet merged into `main`).
+Start new work from this branch.
+
+## Done
+
+| Feature | Where |
+|---|---|
+| Audit logs for personnel time in / time out | Web admin → **Audit Logs** |
+| Live refresh (no reload) for audit logs, admin pages and mobile screens | `public/js/live-refresh.js`, `lib/services/auto_refresh.dart` |
+| Revised Terms and Conditions, required to register | Mobile → Register screen |
+| Resident ↔ personnel chat: text, photos, read ticks, unread badges | Mobile → **Messages**; chat buttons on reports, alarms, SOS |
+| Real-time delivery with Laravel Reverb (falls back to polling if offline) | `routes/channels.php`, `lib/services/realtime_service.dart` |
+| Fresh-database fixes: report column names, SQLite-safe alarm sorting | migration `2026_09_29_090000_restore_report_column_names` |
+
+Back-end tests: `cd web/qrt && php artisan test` (16 passing).
+
+## How to run locally
+
+1. `web/qrt/.env`: `BROADCAST_CONNECTION=reverb` plus the `REVERB_*` values from `.env.example`.
+2. `php artisan migrate` and `php artisan storage:link` (once).
+3. Two terminals in `web/qrt`, both left running:
+   - `php artisan serve --host=0.0.0.0 --port=8000`
+   - `php artisan reverb:start`
+4. `mobile/mobile_qrtms/lib/services/api_service.dart` line 8: set `baseUrl` to the PC's Wi‑Fi IP.
+5. Resident: phone (`flutter run -d <phone-id>`; Xiaomi needs "Install via USB" on).
+   Personnel: Chrome (`flutter run -d chrome`, fake GPS via DevTools → Sensors) or an Android emulator.
+6. Personnel can only TIME IN with a schedule for today and within 200 m of the station.
+
+## Next (planned)
+
+1. **Firebase push notifications (FCM)** – messages and SOS alerts when the app is closed.
+   Prepare: Firebase project, Android app `com.example.mobile_qrtms`, `google-services.json`,
+   and a service-account private key. Keep both files out of git.
+2. **Audio and video calls** – call buttons in the chat, full-screen ringing, using LiveKit
+   (run locally on the PC first; LiveKit Cloud or a hosted server later).
+3. **Smaller items** – Terms and Conditions in the resident menu; photo sending from the Chrome build.
+
+## Known notes
+
+- Photo uploads don't work in the Chrome (web) build.
+- iOS needs camera/photo-library permission texts in `Info.plist` before photos can be used on iPhone.
+- For real deployment, the Laravel, Reverb (and later LiveKit) servers must be hosted online.
