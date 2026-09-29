@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/auto_refresh.dart';
 import 'package:intl/intl.dart';
 import 'chat_page.dart';
 
@@ -10,13 +11,21 @@ class ReportHistoryScreen extends StatefulWidget {
   State<ReportHistoryScreen> createState() => _ReportHistoryScreenState();
 }
 
-class _ReportHistoryScreenState extends State<ReportHistoryScreen> {
+class _ReportHistoryScreenState extends State<ReportHistoryScreen>
+    with AutoRefreshMixin {
   late Future<List<dynamic>> _reportsFuture;
 
   @override
   void initState() {
     super.initState();
     _reportsFuture = _fetchReports();
+    startAutoRefresh();
+  }
+
+  @override
+  Future<void> onAutoRefresh() async {
+    final reports = await _fetchReports();
+    if (mounted) setState(() => _reportsFuture = Future.value(reports));
   }
 
   Future<List<dynamic>> _fetchReports() async {
@@ -48,7 +57,9 @@ class _ReportHistoryScreenState extends State<ReportHistoryScreen> {
       body: FutureBuilder<List<dynamic>>(
         future: _reportsFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          // Keep showing the previous list while a background refresh completes.
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));

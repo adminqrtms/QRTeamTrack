@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/auto_refresh.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:async';
@@ -17,7 +18,8 @@ class PersonnelHomePage extends StatefulWidget {
   _PersonnelHomePageState createState() => _PersonnelHomePageState();
 }
 
-class _PersonnelHomePageState extends State<PersonnelHomePage> {
+class _PersonnelHomePageState extends State<PersonnelHomePage>
+    with AutoRefreshMixin {
   bool isOnDuty = false;
   bool _isLoading = false;
   Timer? _alarmPollingTimer;
@@ -38,12 +40,13 @@ class _PersonnelHomePageState extends State<PersonnelHomePage> {
     _initLocalNotifications();
     _checkAttendanceStatus();
     _fetchUserData();
+    startAutoRefresh();
     RealtimeService.instance.connect();
     _refreshUnreadMessages();
     _incomingMessageSubscription = RealtimeService.instance.incomingMessages
         .listen((_) => _refreshUnreadMessages());
-    // Start polling for new alarms every 10 seconds if on duty
-    _alarmPollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    // Start polling for new alarms every 5 seconds if on duty
+    _alarmPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (isOnDuty) {
         _fetchAlarms(isBackground: true);
       }
@@ -138,6 +141,19 @@ class _PersonnelHomePageState extends State<PersonnelHomePage> {
   Future<void> _refreshUnreadMessages() async {
     final count = await ChatService.getUnreadCount();
     if (mounted) setState(() => _unreadMessages = count);
+  }
+
+  /// Keeps the duty status and profile current without showing a spinner.
+  @override
+  Future<void> onAutoRefresh() async {
+    if (_isLoading) return; // a time in/out request is in progress
+    var res = await ApiService.getAttendanceStatus();
+    if (!mounted || _isLoading || !res.containsKey('is_on_duty')) return;
+    setState(() {
+      isOnDuty = res['is_on_duty'] ?? false;
+      currentStation = res['location_name'];
+    });
+    await _fetchUserData();
   }
 
   Future<void> _fetchUserData() async {

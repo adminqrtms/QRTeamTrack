@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
+import 'terms_and_conditions_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -35,49 +36,23 @@ class _RegisterPageState extends State<RegisterPage> {
     });
   }
 
-  void _showTermsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Terms and Conditions"),
-          content: SingleChildScrollView(
-            child: const Text(
-              "By registering and using the QRTeamTrack system, resident users agree to follow the terms and conditions stated below:\n\n"
-              "Account Responsibility\n"
-              "Residents are responsible for providing accurate and complete information during registration and for maintaining the confidentiality of their account credentials.\n\n"
-              "Proper Use of the System\n"
-              "The system must only be used for legitimate emergency reporting, incident reporting, and communication purposes related to public safety and QRT services.\n\n"
-              "False Reports and Misuse\n"
-              "Submitting false reports, fake emergency alarms, misleading information, or misuse of the emergency alert feature is strictly prohibited and may result in account suspension or legal action.\n\n"
-              "Location Access\n"
-              "Residents agree to allow the system to access their device location when using emergency alarms or incident reporting features to help QRT personnel respond accurately and efficiently.\n\n"
-              "Incident Reports and Uploaded Content\n"
-              "Residents are responsible for the accuracy of submitted reports, images, and other uploaded content. Any offensive, harmful, or unrelated content is prohibited.\n\n"
-              "Privacy and Data Protection\n"
-              "Personal information and location data collected by the system will only be used for emergency response, monitoring, and system-related purposes in accordance with applicable privacy policies.\n\n"
-              "System Availability\n"
-              "The system depends on internet connectivity and GPS services. Delays or interruptions caused by poor connection, technical issues, or device limitations are beyond the responsibility of the developers and administrators.\n\n"
-              "Emergency Response Limitation\n"
-              "Submitting an emergency alarm or incident report does not guarantee immediate response, as response time may depend on personnel availability, location, and emergency conditions.\n\n"
-              "Account Suspension or Removal\n"
-              "Administrators reserve the right to suspend, restrict, or remove accounts that violate system rules, misuse features, or compromise the safety and integrity of the platform.\n\n"
-              "Acceptance of Terms\n"
-              "By creating and using an account in the QRTeamTrack system, residents acknowledge that they have read, understood, and agreed to these Terms and Conditions.",
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Close"),
-            ),
-          ],
-        );
-      },
+  /// Opens the full Terms and Conditions. The box is only checked when the
+  /// resident taps "I Agree"; declining leaves it unchecked.
+  Future<void> _openTerms() async {
+    final agreed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()),
     );
+    if (!mounted || agreed == null) return;
+    setState(() => _acceptTerms = agreed);
   }
 
   void handleRegister() async {
+    if (!_acceptTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Please accept the Terms and Conditions first")));
+      return;
+    }
     if (_selectedLocationId == null) {
       ScaffoldMessenger.of(
         context,
@@ -258,16 +233,19 @@ class _RegisterPageState extends State<RegisterPage> {
                       activeColor: Colors.orange,
                       value: _acceptTerms,
                       onChanged: (value) {
-                        setState(() {
-                          _acceptTerms = value ?? false;
-                        });
+                        // Checking the box requires reading and accepting the terms.
+                        if (value == true) {
+                          _openTerms();
+                        } else {
+                          setState(() => _acceptTerms = false);
+                        }
                       },
                     ),
                     Expanded(
                       child: GestureDetector(
-                        onTap: _showTermsDialog,
+                        onTap: _openTerms,
                         child: const Text(
-                          "I agree to the Terms and Conditions",
+                          "I have read and agree to the Terms and Conditions",
                           style: TextStyle(
                             color: Colors.orange,
                             fontWeight: FontWeight.bold,
@@ -278,6 +256,17 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ],
                 ),
+                if (!_acceptTerms)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 12, top: 2),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "You must accept the Terms and Conditions to create an account.",
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 20),
                 // Register Button
                 SizedBox(

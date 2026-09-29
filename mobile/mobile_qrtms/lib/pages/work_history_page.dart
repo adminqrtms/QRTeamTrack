@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/auto_refresh.dart';
 import 'package:intl/intl.dart';
 
 class WorkHistoryPage extends StatefulWidget {
@@ -9,7 +10,8 @@ class WorkHistoryPage extends StatefulWidget {
   _WorkHistoryPageState createState() => _WorkHistoryPageState();
 }
 
-class _WorkHistoryPageState extends State<WorkHistoryPage> {
+class _WorkHistoryPageState extends State<WorkHistoryPage>
+    with AutoRefreshMixin {
   List<dynamic> _history = [];
   bool _isLoading = true;
 
@@ -17,7 +19,11 @@ class _WorkHistoryPageState extends State<WorkHistoryPage> {
   void initState() {
     super.initState();
     _fetchHistory();
+    startAutoRefresh();
   }
+
+  @override
+  Future<void> onAutoRefresh() => _fetchHistory();
 
   Future<void> _fetchHistory() async {
     var res = await ApiService.getAttendanceHistory();

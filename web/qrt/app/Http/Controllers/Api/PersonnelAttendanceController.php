@@ -8,6 +8,7 @@ use App\Models\Attendance;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\User;
+use App\Models\AuditLog;
 
 class PersonnelAttendanceController extends Controller
 {
@@ -52,7 +53,8 @@ class PersonnelAttendanceController extends Controller
             
             // Use getRawOriginal to get the exact time string from DB (e.g., "11:14:00")
             // This prevents the 8-hour timezone shift caused by automatic model casting.
-            $timeInString = $attendance->getRawOriginal('time_in');
+            // Normalize to H:i:s: SQLite stores a full datetime here, MySQL's TIME column only the time.
+            $timeInString = Carbon::parse($attendance->getRawOriginal('time_in'))->format('H:i:s');
             $dateString = $attendance->date->toDateString();
             
             $timeIn = Carbon::parse("$dateString $timeInString", $timezone)->startOfMinute();
@@ -62,6 +64,9 @@ class PersonnelAttendanceController extends Controller
             $attendance->hours_worked = round($minutes / 60, 2);
             
             $attendance->save();
+
+            $this->recordAudit($request, $personnel, $attendance, AuditLog::ACTION_TIME_OUT, $now,
+                "Timed out from " . ($attendance->location->location_name ?? 'N/A') . " ({$attendance->hours_worked} hrs worked)");
 
             // Collate all sessions for the same shift date to calculate total daily earnings
             $dailyTotalHours = Attendance::where('user_id', $personnel->id)
@@ -133,13 +138,16 @@ class PersonnelAttendanceController extends Controller
 
         $status = $alreadyTimedInToday ? 'On Time' : $this->determineStatus($schedule, $now);
 
-        Attendance::create([
+        $attendance = Attendance::create([
             'user_id' => $personnel->id,
             'date' => $now->toDateString(),
             'location_id' => $schedule->location_id,
             'time_in' => $now,
             'status' => $status
         ]);
+
+        $this->recordAudit($request, $personnel, $attendance, AuditLog::ACTION_TIME_IN, $now,
+            "Timed in at {$schedule->location->location_name} ({$status})");
 
         return response()->json([
             'status' => 'success',
@@ -149,6 +157,21 @@ class PersonnelAttendanceController extends Controller
                 'attendance_status' => $status,
                 'location_name' => $schedule->location->location_name
             ]
+        ]);
+    }
+
+    private function recordAudit(Request $request, Personnel $personnel, Attendance $attendance, string $action, Carbon $now, string $description)
+    {
+        AuditLog::create([
+            'user_id' => $personnel->id,
+            'attendance_id' => $attendance->id,
+            'location_id' => $attendance->location_id,
+            'action' => $action,
+            'description' => $description,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'ip_address' => $request->ip(),
+            'logged_at' => $now,
         ]);
     }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/auto_refresh.dart';
 import 'alarm_details_page.dart';
 import 'report_details_page.dart';
 
@@ -10,7 +11,8 @@ class PersonnelAlarmsPage extends StatefulWidget {
   State<PersonnelAlarmsPage> createState() => _PersonnelAlarmsPageState();
 }
 
-class _PersonnelAlarmsPageState extends State<PersonnelAlarmsPage> {
+class _PersonnelAlarmsPageState extends State<PersonnelAlarmsPage>
+    with AutoRefreshMixin {
   bool _isLoading = true;
   List<dynamic> _alarms = [];
   List<dynamic> _reports = [];
@@ -19,13 +21,18 @@ class _PersonnelAlarmsPageState extends State<PersonnelAlarmsPage> {
   void initState() {
     super.initState();
     _loadData();
+    startAutoRefresh();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+  @override
+  Future<void> onAutoRefresh() => _loadData(silent: true);
+
+  Future<void> _loadData({bool silent = false}) async {
+    if (!silent) setState(() => _isLoading = true);
     try {
       final alarmRes = await ApiService.getAlarms();
       final reportRes = await ApiService.getReports();
+      if (!mounted) return;
 
       setState(() {
         _alarms = (alarmRes['data'] as List? ?? [])
@@ -39,7 +46,7 @@ class _PersonnelAlarmsPageState extends State<PersonnelAlarmsPage> {
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

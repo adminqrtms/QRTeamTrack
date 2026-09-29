@@ -9,7 +9,7 @@
             </div>
             <div>
                 <h2 class="fw-bold mb-0">Incident Reports</h2>
-                <p class="text-muted mb-0">Comprehensive log of all reported incidents and emergencies.</p>
+                <p class="text-muted mb-0">Comprehensive log of all reported incidents and emergencies. <span class="live-indicator text-success fw-semibold d-inline-flex align-items-center gap-1"><span class="dot"></span> Live</span></p>
             </div>
         </div>
     </div>
@@ -41,9 +41,9 @@
                             <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-live="reports-list">
                         @forelse($reports as $report)
-                            <tr>
+                            <tr data-live-key="report-{{ $report->id }}">
                                 <td class="ps-4">
                                     <span class="fw-bold text-primary">#INC-{{ $report->id }}</span>
                                 </td>
@@ -79,7 +79,7 @@
             </div>
         </div>
         @if(method_exists($reports, 'links'))
-            <div class="card-footer bg-white py-3">
+            <div class="card-footer bg-white py-3" data-live="reports-pagination">
                 {{ $reports->links() }}
             </div>
         @endif

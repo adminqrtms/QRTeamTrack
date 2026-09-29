@@ -12,7 +12,7 @@
         </a>
     </div>
 
-    <div class="row mb-4">
+    <div class="row mb-4" data-live="attendance-summary">
         <div class="col-md-6">
             <div class="card border-0 shadow-sm rounded-3 bg-primary text-white p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -57,9 +57,9 @@
                         <th class="px-4 py-3 text-end">Hours Worked</th>
                     </tr>
                 </thead>
-                <tbody class="text-dark">
+                <tbody class="text-dark" data-live="attendance-list">
                     @forelse($attendances as $attendance)
-                        <tr>
+                        <tr data-live-key="attendance-{{ $attendance->id }}">
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <span class="fw-bold text-dark">{{ $attendance->time_in->format('M d, Y') }}</span>
                             </td>

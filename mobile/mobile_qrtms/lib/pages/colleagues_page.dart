@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/auto_refresh.dart';
 import 'package:intl/intl.dart';
 
 class ColleaguesPage extends StatefulWidget {
@@ -9,7 +10,8 @@ class ColleaguesPage extends StatefulWidget {
   _ColleaguesPageState createState() => _ColleaguesPageState();
 }
 
-class _ColleaguesPageState extends State<ColleaguesPage> {
+class _ColleaguesPageState extends State<ColleaguesPage>
+    with AutoRefreshMixin {
   List<dynamic> _colleagues = [];
   bool _isLoading = true;
 
@@ -17,7 +19,11 @@ class _ColleaguesPageState extends State<ColleaguesPage> {
   void initState() {
     super.initState();
     _fetchColleagues();
+    startAutoRefresh();
   }
+
+  @override
+  Future<void> onAutoRefresh() => _fetchColleagues();
 
   Future<void> _fetchColleagues() async {
     var data = await ApiService.getColleagues();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/auto_refresh.dart';
 import 'package:intl/intl.dart';
 
 class WeeklySchedulePage extends StatefulWidget {
@@ -9,7 +10,8 @@ class WeeklySchedulePage extends StatefulWidget {
   _WeeklySchedulePageState createState() => _WeeklySchedulePageState();
 }
 
-class _WeeklySchedulePageState extends State<WeeklySchedulePage> {
+class _WeeklySchedulePageState extends State<WeeklySchedulePage>
+    with AutoRefreshMixin {
   List<dynamic> _schedules = [];
   bool _isLoading = true;
 
@@ -17,7 +19,11 @@ class _WeeklySchedulePageState extends State<WeeklySchedulePage> {
   void initState() {
     super.initState();
     _fetchSchedules();
+    startAutoRefresh();
   }
+
+  @override
+  Future<void> onAutoRefresh() => _fetchSchedules();
 
   Future<void> _fetchSchedules() async {
     var data = await ApiService.getMySchedules();
