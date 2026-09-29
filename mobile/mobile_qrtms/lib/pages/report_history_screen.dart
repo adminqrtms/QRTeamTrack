@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:intl/intl.dart';
+import 'chat_page.dart';
 
 class ReportHistoryScreen extends StatefulWidget {
   const ReportHistoryScreen({super.key});
@@ -78,6 +79,7 @@ class _ReportHistoryScreenState extends State<ReportHistoryScreen> {
               itemBuilder: (context, index) {
                 final report = reports[index];
                 final date = DateTime.parse(report['created_at']).toLocal();
+                final handler = report['respondent'] ?? report['personnel'];
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -103,6 +105,22 @@ class _ReportHistoryScreenState extends State<ReportHistoryScreen> {
                           style:
                               TextStyle(fontSize: 12, color: Colors.grey[600]),
                         ),
+                        if (handler != null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              icon: const Icon(Icons.chat, size: 18),
+                              label: Text("Message ${handler['name']}"),
+                              onPressed: () => ChatPage.open(
+                                context,
+                                reportId: report['id'],
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     trailing: Container(

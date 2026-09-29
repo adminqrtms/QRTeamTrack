@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'chat_page.dart';
 
 class ReportDetailsPage extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -176,6 +177,12 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
                     child: Icon(Icons.person, color: Colors.white)),
                 title: Text(resident['name'] ?? "Unknown Resident"),
                 subtitle: Text("Phone: ${resident['phone_number'] ?? 'N/A'}"),
+                trailing: IconButton(
+                  icon: const Icon(Icons.chat, color: Colors.blue),
+                  tooltip: "Message resident",
+                  onPressed: () =>
+                      ChatPage.open(context, reportId: widget.data['id']),
+                ),
               ),
             ),
             const SizedBox(height: 24),

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PersonnelAttendanceController;
 use App\Http\Controllers\Admin\PersonnelController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\ConversationController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -29,6 +30,15 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Tracking routes for both roles
     Route::get('/tracker/personnel', [UserController::class, 'activePersonnel']);
+
+    // Messaging between residents and personnel
+    Route::get('/conversations', [ConversationController::class, 'index']);
+    Route::post('/conversations', [ConversationController::class, 'store']);
+    Route::get('/conversations/unread-count', [ConversationController::class, 'unreadCount']);
+    Route::get('/conversations/{id}', [ConversationController::class, 'show'])->whereNumber('id');
+    Route::get('/conversations/{id}/messages', [ConversationController::class, 'messages'])->whereNumber('id');
+    Route::post('/conversations/{id}/messages', [ConversationController::class, 'sendMessage'])->whereNumber('id');
+    Route::post('/conversations/{id}/read', [ConversationController::class, 'markRead'])->whereNumber('id');
 
 
     // Attendance Toggle Route

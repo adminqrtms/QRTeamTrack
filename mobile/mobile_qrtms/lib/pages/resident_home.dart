@@ -4,6 +4,10 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'report_incident_screen.dart';
 import 'report_history_screen.dart';
+import 'conversations_page.dart';
+import 'chat_page.dart';
+import '../services/chat_service.dart';
+import '../services/realtime_service.dart';
 
 class ResidentHomePage extends StatefulWidget {
   const ResidentHomePage({super.key});
@@ -16,21 +20,49 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
   Map<String, dynamic>? userData;
   Map<String, dynamic>? _latestAlarm;
   Timer? _statusPollingTimer;
+  int _unreadMessages = 0;
+  StreamSubscription? _incomingMessageSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchUserData();
+    RealtimeService.instance.connect();
+    _refreshUnreadMessages();
+    _incomingMessageSubscription = RealtimeService.instance.incomingMessages
+        .listen((_) => _refreshUnreadMessages());
     // Start polling for alarm status updates every 5 seconds
     _statusPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _checkActiveAlarmStatus();
+      if (!RealtimeService.instance.isConnected) _refreshUnreadMessages();
     });
   }
 
   @override
   void dispose() {
     _statusPollingTimer?.cancel();
+    _incomingMessageSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _refreshUnreadMessages() async {
+    final count = await ChatService.getUnreadCount();
+    if (mounted) setState(() => _unreadMessages = count);
+  }
+
+  Future<void> _openMessages() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ConversationsPage()),
+    );
+    _refreshUnreadMessages();
+  }
+
+  /// Whether the latest SOS has a responder the resident can message.
+  bool _canMessageResponder() {
+    return _latestAlarm != null &&
+        _latestAlarm!['responded_by'] != null &&
+        ['responding', 'responded'].contains(_latestAlarm!['status']);
   }
 
   Future<void> _fetchUserData() async {
@@ -281,6 +313,14 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
         backgroundColor: Colors.blue,
         actions: [
           IconButton(
+            icon: Badge(
+              isLabelVisible: _unreadMessages > 0,
+              label: Text('$_unreadMessages'),
+              child: const Icon(Icons.forum),
+            ),
+            onPressed: _openMessages,
+          ),
+          IconButton(
             icon: Icon(Icons.person),
             onPressed: () {
               Navigator.pushNamed(context, '/manage_account');
@@ -307,6 +347,17 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.forum),
+              title: const Text('Messages'),
+              trailing: _unreadMessages > 0
+                  ? Badge(label: Text('$_unreadMessages'))
+                  : null,
+              onTap: () {
+                Navigator.pop(context);
+                _openMessages();
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.settings),
               title: Text('Manage Account'),
               onTap: () {
@@ -325,119 +376,153 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
           ],
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            if (userData != null)
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.home, color: Colors.blue),
-                  title: Text(
-                    userData!['location'] != null
-                        ? userData!['location']['location_name']
-                        : "Unknown Location",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(userData!['address'] ?? "No address provided"),
-                  trailing: const Chip(
-                    label: Text("Home Area"),
-                    backgroundColor: Colors.blueAccent,
-                    labelStyle: TextStyle(color: Colors.white, fontSize: 10),
-                  ),
-                ),
-              ),
-            Spacer(),
-            // Emergency Button
-            GestureDetector(
-              onLongPress:
-                  _isSosUnavailable() ? _handleCancelAlarm : _handleEmergency,
-              child: Container(
-                height: 180,
-                width: 180,
-                decoration: BoxDecoration(
-                  color: _isSosUnavailable() ? Colors.grey : Colors.red,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    if (!_isSosUnavailable())
-                      BoxShadow(
-                        color: Colors.red.withOpacity(0.4),
-                        blurRadius: 20,
-                        spreadRadius: 5,
-                      ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.notifications_active,
-                      size: 50,
-                      color: Colors.white,
-                    ),
-                    Text(
-                      _isSosUnavailable() ? "CANCEL" : "SOS",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+      // Scrollable on small screens; the Spacers still spread items on tall ones.
+      body: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  if (userData != null)
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.home, color: Colors.blue),
+                        title: Text(
+                          userData!['location'] != null
+                              ? userData!['location']['location_name']
+                              : "Unknown Location",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle:
+                            Text(userData!['address'] ?? "No address provided"),
+                        trailing: const Chip(
+                          label: Text("Home Area"),
+                          backgroundColor: Colors.blueAccent,
+                          labelStyle:
+                              TextStyle(color: Colors.white, fontSize: 10),
+                        ),
                       ),
                     ),
+                  Spacer(),
+                  // Emergency Button
+                  GestureDetector(
+                    onLongPress: _isSosUnavailable()
+                        ? _handleCancelAlarm
+                        : _handleEmergency,
+                    child: Container(
+                      height: 180,
+                      width: 180,
+                      decoration: BoxDecoration(
+                        color: _isSosUnavailable() ? Colors.grey : Colors.red,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          if (!_isSosUnavailable())
+                            BoxShadow(
+                              color: Colors.red.withOpacity(0.4),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.notifications_active,
+                            size: 50,
+                            color: Colors.white,
+                          ),
+                          Text(
+                            _isSosUnavailable() ? "CANCEL" : "SOS",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    _isSosUnavailable()
+                        ? "SOS is active. Long press to cancel."
+                        : "Long press for Emergency",
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  if (_canMessageResponder()) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.chat),
+                      label: Text(
+                        "Message ${_latestAlarm!['responder']?['name'] ?? 'Responder'}",
+                      ),
+                      onPressed: () =>
+                          ChatPage.open(context, alarmId: _latestAlarm!['id']),
+                    ),
                   ],
-                ),
+                  Spacer(),
+                  // Action Buttons
+                  ListTile(
+                    tileColor: Colors.orange[50],
+                    leading: Icon(Icons.report, color: Colors.orange),
+                    title: Text("Report Incident"),
+                    subtitle: Text("Non-emergency complaints"),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ReportIncidentScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    tileColor: Colors.green[50],
+                    leading: const Icon(Icons.assignment_turned_in,
+                        color: Colors.green),
+                    title: const Text("My Reports"),
+                    subtitle: const Text("Track status of your incidents"),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ReportHistoryScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    tileColor: Colors.indigo[50],
+                    leading: Badge(
+                      isLabelVisible: _unreadMessages > 0,
+                      label: Text('$_unreadMessages'),
+                      child: const Icon(Icons.forum, color: Colors.indigo),
+                    ),
+                    title: const Text("Messages"),
+                    subtitle: const Text("Chat with on-duty personnel"),
+                    onTap: _openMessages,
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    tileColor: Colors.blue[50],
+                    leading: const Icon(Icons.gps_fixed, color: Colors.blue),
+                    title: const Text("Track Personnel"),
+                    subtitle: const Text("View active responders on the map"),
+                    onTap: () {
+                      Navigator.pushNamed(context, '/personnel_tracker_screen');
+                    },
+                  ),
+                  Spacer(),
+                ],
               ),
             ),
-            SizedBox(height: 10),
-            Text(
-              _isSosUnavailable()
-                  ? "SOS is active. Long press to cancel."
-                  : "Long press for Emergency",
-              style: const TextStyle(color: Colors.grey),
-            ),
-            Spacer(),
-            // Action Buttons
-            ListTile(
-              tileColor: Colors.orange[50],
-              leading: Icon(Icons.report, color: Colors.orange),
-              title: Text("Report Incident"),
-              subtitle: Text("Non-emergency complaints"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ReportIncidentScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              tileColor: Colors.green[50],
-              leading:
-                  const Icon(Icons.assignment_turned_in, color: Colors.green),
-              title: const Text("My Reports"),
-              subtitle: const Text("Track status of your incidents"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ReportHistoryScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              tileColor: Colors.blue[50],
-              leading: const Icon(Icons.gps_fixed, color: Colors.blue),
-              title: const Text("Track Personnel"),
-              subtitle: const Text("View active responders on the map"),
-              onTap: () {
-                Navigator.pushNamed(context, '/personnel_tracker_screen');
-              },
-            ),
-            Spacer(),
-          ],
+          ),
         ),
       ),
     );

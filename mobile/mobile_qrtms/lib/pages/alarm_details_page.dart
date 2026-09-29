@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'chat_page.dart';
 
 class AlarmDetailsPage extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -89,6 +90,12 @@ class _AlarmDetailsPageState extends State<AlarmDetailsPage> {
                       leading: const Icon(Icons.person),
                       title: Text(user['name'] ?? "Unknown"),
                       subtitle: Text("Phone: ${user['phone_number'] ?? 'N/A'}"),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.chat, color: Colors.blue),
+                        tooltip: "Message resident",
+                        onPressed: () =>
+                            ChatPage.open(context, alarmId: widget.data['id']),
+                      ),
                     ),
                     ListTile(
                       leading: const Icon(Icons.location_on),

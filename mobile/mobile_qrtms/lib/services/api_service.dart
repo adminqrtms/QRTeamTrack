@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'realtime_service.dart';
 
 class ApiService {
   static const String baseUrl = "http://192.168.0.22:8000/api";
@@ -20,6 +21,7 @@ class ApiService {
 
   // Logout: Clear storage and static variables
   static Future<void> logout() async {
+    await RealtimeService.instance.disconnect();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     token = null;
@@ -123,6 +125,18 @@ class ApiService {
           token = newToken;
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('token', newToken);
+
+          // Registration returns the new user in 'data'; keep its role and id
+          // (needed by chat to tell which messages are ours).
+          final user = result['data'];
+          if (user is Map) {
+            role = user['role']?.toString() ?? 'resident';
+            await prefs.setString('role', role!);
+            if (user['id'] != null) {
+              userId = user['id'].toString();
+              await prefs.setString('userId', userId!);
+            }
+          }
         }
       }
       return result;

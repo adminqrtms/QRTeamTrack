@@ -6,6 +6,9 @@ import 'dart:async';
 import 'work_history_page.dart';
 import 'alarm_details_page.dart';
 import 'personnel_alarms_page.dart';
+import 'conversations_page.dart';
+import '../services/chat_service.dart';
+import '../services/realtime_service.dart';
 
 class PersonnelHomePage extends StatefulWidget {
   const PersonnelHomePage({super.key});
@@ -24,6 +27,8 @@ class _PersonnelHomePageState extends State<PersonnelHomePage> {
   int? _displayedAlarmId;
   final Set<int> _notifiedFalseAlarmIds = {};
   int _activeIncidentCount = 0;
+  int _unreadMessages = 0;
+  StreamSubscription? _incomingMessageSubscription;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -33,11 +38,16 @@ class _PersonnelHomePageState extends State<PersonnelHomePage> {
     _initLocalNotifications();
     _checkAttendanceStatus();
     _fetchUserData();
+    RealtimeService.instance.connect();
+    _refreshUnreadMessages();
+    _incomingMessageSubscription = RealtimeService.instance.incomingMessages
+        .listen((_) => _refreshUnreadMessages());
     // Start polling for new alarms every 10 seconds if on duty
     _alarmPollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (isOnDuty) {
         _fetchAlarms(isBackground: true);
       }
+      if (!RealtimeService.instance.isConnected) _refreshUnreadMessages();
     });
   }
 
@@ -109,6 +119,7 @@ class _PersonnelHomePageState extends State<PersonnelHomePage> {
   @override
   void dispose() {
     _alarmPollingTimer?.cancel();
+    _incomingMessageSubscription?.cancel();
     super.dispose();
   }
 
@@ -122,6 +133,11 @@ class _PersonnelHomePageState extends State<PersonnelHomePage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _refreshUnreadMessages() async {
+    final count = await ChatService.getUnreadCount();
+    if (mounted) setState(() => _unreadMessages = count);
   }
 
   Future<void> _fetchUserData() async {
@@ -650,6 +666,21 @@ class _PersonnelHomePageState extends State<PersonnelHomePage> {
                   "Resident Alarms",
                   Colors.red,
                   onTap: _fetchAlarms,
+                ),
+                _buildDashboardItem(
+                  Icons.forum,
+                  "Messages",
+                  Colors.indigo,
+                  badgeCount: _unreadMessages,
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ConversationsPage(),
+                      ),
+                    );
+                    _refreshUnreadMessages();
+                  },
                 ),
                 _buildDashboardItem(
                   Icons.calendar_today,
