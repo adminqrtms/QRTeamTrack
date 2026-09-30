@@ -4,9 +4,13 @@
 #   run-app.bat chrome      run in Chrome
 #   run-app.bat 22101316G   run on a specific phone
 #   run-app.bat emulator    start the Android emulator (if needed) and run on it
-param([string]$Device = '')
+#   run-app.bat 22101316G 192.168.1.15   use this IP instead of detecting it
+param([string]$Device = '', [string]$Ip = '')
 
-$ip = & (Join-Path $PSScriptRoot 'lan-ip.ps1')
+$ip = $Ip
+if (-not $ip) {
+    $ip = & (Join-Path $PSScriptRoot 'lan-ip.ps1')
+}
 if (-not $ip) {
     Write-Host 'Could not detect this PC''s IP address.' -ForegroundColor Yellow
     $ip = Read-Host 'Type the Wi-Fi IPv4 Address from ipconfig'
@@ -15,6 +19,8 @@ if (-not $ip) {
 $apiUrl = "http://${ip}:8000/api"
 Write-Host ''
 Write-Host "  The app will use the server at $apiUrl" -ForegroundColor Green
+Write-Host "  (Check it matches the Wi-Fi IPv4 Address in ipconfig. If not, run:"
+Write-Host "   run-app.bat <device> <your-ip>)"
 Write-Host ''
 
 Set-Location (Join-Path $PSScriptRoot '..\mobile\mobile_qrtms')

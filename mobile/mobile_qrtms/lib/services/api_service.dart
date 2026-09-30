@@ -39,11 +39,20 @@ class ApiService {
     String email,
     String password,
   ) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/login'),
-      headers: {'Accept': 'application/json'},
-      body: {'email': email, 'password': password},
-    );
+    final http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse('$baseUrl/login'),
+        headers: {'Accept': 'application/json'},
+        body: {'email': email, 'password': password},
+      ).timeout(const Duration(seconds: 15));
+    } catch (e) {
+      // Wrong IP, server not running, firewall, or a different Wi-Fi network
+      return {
+        "message": "Can't reach the server at $baseUrl. "
+            "Check that the server is running and this phone is on the same Wi-Fi.",
+      };
+    }
 
     try {
       // Decode the response (handles 200 OK and 422 Validation Errors)
