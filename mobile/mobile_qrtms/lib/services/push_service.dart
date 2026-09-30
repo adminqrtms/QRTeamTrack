@@ -41,6 +41,14 @@ class PushService {
 
   static const String _emergencyChannelId = 'emergency_channel';
 
+  /// Buttons on the SOS notification.
+  static const String actionRespond = 'respond';
+  static const String actionView = 'view';
+
+  /// Android's FLAG_INSISTENT: the alarm sound repeats until the
+  /// notification is opened or dismissed.
+  static const int _flagInsistent = 4;
+
   /// Notification id shared with the home screen's SOS notification, so a
   /// full-screen alert and the in-app one replace each other.
   static const int _sosNotificationId = 0;
@@ -98,7 +106,10 @@ class PushService {
         onDidReceiveNotificationResponse: (response) {
           final payload = response.payload;
           if (payload != null && payload.isNotEmpty) {
-            openFromData(Map<String, dynamic>.from(jsonDecode(payload)));
+            openFromData(
+              Map<String, dynamic>.from(jsonDecode(payload)),
+              actionId: response.actionId,
+            );
           }
         },
       );
@@ -190,11 +201,14 @@ class PushService {
     );
     await _createEmergencyChannel(plugin);
 
+    final title = data['title'] ?? 'EMERGENCY SOS!';
+    final body = data['body'] ?? 'A resident needs help.';
+
     await plugin.show(
       _sosNotificationId,
-      data['title'] ?? 'EMERGENCY SOS!',
-      data['body'] ?? 'A resident needs help.',
-      const NotificationDetails(
+      title,
+      body,
+      NotificationDetails(
         android: AndroidNotificationDetails(
           _emergencyChannelId,
           'Emergency Alarms',
@@ -204,6 +218,29 @@ class PushService {
           fullScreenIntent: true,
           visibility: NotificationVisibility.public,
           ticker: 'EMERGENCY SOS',
+          // Bigger, more noticeable banner
+          styleInformation: BigTextStyleInformation(
+            '$body\nTap to open, or respond right away.',
+            contentTitle: '🚨 $title',
+            summaryText: 'Emergency',
+          ),
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          color: const Color(0xFFD32F2F),
+          additionalFlags: Int32List.fromList(<int>[_flagInsistent]),
+          actions: const <AndroidNotificationAction>[
+            AndroidNotificationAction(
+              actionRespond,
+              "I'M COMING",
+              showsUserInterface: true,
+              titleColor: Color(0xFF2E7D32),
+            ),
+            AndroidNotificationAction(
+              actionView,
+              'VIEW DETAILS',
+              showsUserInterface: true,
+              titleColor: Color(0xFFD32F2F),
+            ),
+          ],
         ),
       ),
       payload: jsonEncode({
@@ -266,7 +303,10 @@ class PushService {
       if (details?.didNotificationLaunchApp == true &&
           payload != null &&
           payload.isNotEmpty) {
-        await openFromData(Map<String, dynamic>.from(jsonDecode(payload)));
+        await openFromData(
+          Map<String, dynamic>.from(jsonDecode(payload)),
+          actionId: details?.notificationResponse?.actionId,
+        );
       }
     } catch (e) {
       debugPrint('LAUNCH NOTIFICATION ERROR: $e');
@@ -274,7 +314,10 @@ class PushService {
   }
 
   /// Opens the chat or alarm a notification is about.
-  Future<void> openFromData(Map<String, dynamic> data) async {
+  Future<void> openFromData(
+    Map<String, dynamic> data, {
+    String? actionId,
+  }) async {
     final navigator = navigatorKey.currentState;
     if (navigator == null || ApiService.token == null) return;
 
@@ -294,6 +337,31 @@ class PushService {
     } else if (data['type'] == 'alarm' && ApiService.role == 'personnel') {
       final id = int.tryParse('${data['alarm_id']}');
       if (id == null) return;
+
+      // Stop the repeating alarm sound
+      await localNotifications.cancel(_sosNotificationId);
+
+      if (actionId == actionRespond) {
+        // "I'M COMING" pressed on the notification
+        await ApiService.updateAlarmStatus(id, 'responding');
+        final alarm = await getAlarm(id);
+        if (alarm != null) {
+          navigator.push(
+            MaterialPageRoute(builder: (_) => AlarmDetailsPage(data: alarm)),
+          );
+        }
+        return;
+      }
+
+      if (actionId == actionView) {
+        final alarm = await getAlarm(id);
+        if (alarm != null) {
+          navigator.push(
+            MaterialPageRoute(builder: (_) => AlarmDetailsPage(data: alarm)),
+          );
+        }
+        return;
+      }
 
       if (_alarmAlertController.hasListener) {
         // The home screen shows its EMERGENCY ALARM pop-up.
