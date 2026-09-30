@@ -7,6 +7,7 @@ use App\Models\Alarm;
 use App\Models\Attendance;
 use Illuminate\Http\Request;
 use App\Models\Location;
+use App\Services\PushNotificationService;
 use Illuminate\Support\Facades\Validator;
 
 class AlarmController extends Controller
@@ -128,6 +129,23 @@ class AlarmController extends Controller
             'status' => 'triggered',
         ]);
 
+        // Alert every personnel on duty at the target location, even if their app is closed
+        $onDutyPersonnelIds = Attendance::where('location_id', $targetLocationId)
+            ->whereNull('time_out')
+            ->pluck('user_id');
+
+        app(PushNotificationService::class)->sendToUsersAfterResponse(
+            $onDutyPersonnelIds,
+            'EMERGENCY SOS!',
+            'Resident ' . $user->name . ' needs help' . ($user->address ? ' at ' . $user->address : '') . '.',
+            [
+                'type' => 'alarm',
+                'alarm_id' => $alarm->id,
+                'tag' => 'alarm_' . $alarm->id,
+            ],
+            PushNotificationService::CHANNEL_EMERGENCY,
+        );
+
         return response()->json([
             'status' => 'success',
             'message' => 'Alarm triggered successfully',
@@ -162,10 +180,12 @@ class AlarmController extends Controller
         ]);
 
         $alarm->status = $request->status;
+        $responderJustAssigned = false;
 
         if (in_array($request->status, ['responding', 'responded']) && !$alarm->responded_by) {
             $alarm->responded_by = $request->user()->id;
             $alarm->responded_at = now();
+            $responderJustAssigned = true;
         }
 
         if ($request->has('action_taken')) {
@@ -173,6 +193,21 @@ class AlarmController extends Controller
         }
 
         $alarm->save();
+
+        // Let the resident know help is on the way
+        if ($responderJustAssigned && (int) $alarm->user_id !== $request->user()->id) {
+            app(PushNotificationService::class)->sendToUsersAfterResponse(
+                [$alarm->user_id],
+                'Help is on the way!',
+                'Rescuer ' . $request->user()->name . ' is now responding to your SOS.',
+                [
+                    'type' => 'alarm',
+                    'alarm_id' => $alarm->id,
+                    'tag' => 'alarm_' . $alarm->id,
+                ],
+                PushNotificationService::CHANNEL_EMERGENCY,
+            );
+        }
 
         return response()->json(['message' => 'Alarm updated', 'data' => $alarm]);
     }

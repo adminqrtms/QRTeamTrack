@@ -13,8 +13,9 @@ Start new work from this branch.
 | Resident ↔ personnel chat: text, photos, read ticks, unread badges | Mobile → **Messages**; chat buttons on reports, alarms, SOS |
 | Real-time delivery with Laravel Reverb (falls back to polling if offline) | `routes/channels.php`, `lib/services/realtime_service.dart` |
 | Fresh-database fixes: report column names, SQLite-safe alarm sorting | migration `2026_09_29_090000_restore_report_column_names` |
+| Firebase push notifications: new messages, SOS to on-duty personnel, "help is on the way" to the resident; tap opens the chat/alarm | `app/Services/PushNotificationService.php`, `lib/services/push_service.dart` |
 
-Back-end tests: `cd web/qrt && php artisan test` (16 passing).
+Back-end tests: `cd web/qrt && php artisan test` (24 passing).
 
 ## How to run locally
 
@@ -27,15 +28,17 @@ Back-end tests: `cd web/qrt && php artisan test` (16 passing).
 5. Resident: phone (`flutter run -d <phone-id>`; Xiaomi needs "Install via USB" on).
    Personnel: Chrome (`flutter run -d chrome`, fake GPS via DevTools → Sensors) or an Android emulator.
 6. Personnel can only TIME IN with a schedule for today and within 200 m of the station.
+7. Push notifications (Firebase project `qrteamtrack-002`, Android app `com.example.mobile_qrtms`).
+   Both files stay out of git:
+   - `mobile/mobile_qrtms/android/app/google-services.json`
+   - `web/qrt/storage/app/firebase-credentials.json` (service account private key)
+   Without them, everything still works, just without push notifications.
 
 ## Next (planned)
 
-1. **Firebase push notifications (FCM)** – messages and SOS alerts when the app is closed.
-   Prepare: Firebase project, Android app `com.example.mobile_qrtms`, `google-services.json`,
-   and a service-account private key. Keep both files out of git.
-2. **Audio and video calls** – call buttons in the chat, full-screen ringing, using LiveKit
+1. **Audio and video calls** – call buttons in the chat, full-screen ringing, using LiveKit
    (run locally on the PC first; LiveKit Cloud or a hosted server later).
-3. **Smaller items** – Terms and Conditions in the resident menu; photo sending from the Chrome build.
+2. **Smaller items** – Terms and Conditions in the resident menu; photo sending from the Chrome build.
 
 ## Known notes
 

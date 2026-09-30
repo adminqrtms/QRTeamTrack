@@ -33,6 +33,20 @@ class ChatService {
     }
   }
 
+  /// A single conversation, or null if it can't be loaded.
+  static Future<Map<String, dynamic>?> getConversation(int id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiService.baseUrl}/conversations/$id'),
+        headers: _headers,
+      );
+      final data = _decode(response)['data'];
+      return data is Map<String, dynamic> ? data : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   static Future<int> getUnreadCount() async {
     try {
       final response = await http.get(

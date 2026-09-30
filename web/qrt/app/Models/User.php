@@ -130,6 +130,14 @@ class User extends Authenticatable
      * Since Personnel extends User, this returns the same record 
      * but scoped to the Personnel model.
      */
+    /**
+     * Firebase push notification tokens of the user's phones.
+     */
+    public function deviceTokens()
+    {
+        return $this->hasMany(DeviceToken::class);
+    }
+
     public function personnel()
     {
         return $this->hasOne(Personnel::class, 'id', 'id');

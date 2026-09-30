@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\PersonnelAttendanceController;
 use App\Http\Controllers\Admin\PersonnelController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\ConversationController;
+use App\Http\Controllers\Api\DeviceTokenController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -30,6 +31,10 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Tracking routes for both roles
     Route::get('/tracker/personnel', [UserController::class, 'activePersonnel']);
+
+    // Push notification tokens (Firebase)
+    Route::post('/device-tokens', [DeviceTokenController::class, 'store']);
+    Route::delete('/device-tokens', [DeviceTokenController::class, 'destroy']);
 
     // Messaging between residents and personnel
     Route::get('/conversations', [ConversationController::class, 'index']);

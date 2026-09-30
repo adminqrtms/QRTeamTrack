@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:dart_pusher_channels/dart_pusher_channels.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/widgets.dart';
 import 'api_service.dart';
+import 'push_service.dart';
 
 /// Live connection to the Laravel Reverb WebSocket server.
 ///
@@ -22,9 +22,6 @@ class RealtimeService {
   StreamSubscription? _lifecycleSubscription;
   StreamSubscription? _userMessageSubscription;
   bool _isConnected = false;
-  bool _notificationsReady = false;
-  final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
 
   final StreamController<Map<String, dynamic>> _incomingController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -64,7 +61,7 @@ class RealtimeService {
     final userId = ApiService.userId;
     if (userId == null) return;
 
-    await _initNotifications();
+    await PushService.instance.ensureLocalNotifications();
 
     final client = PusherChannelsClient.websocket(
       options: _options,
@@ -162,63 +159,25 @@ class RealtimeService {
     _incomingController.add(data);
 
     final message = data['message'] as Map;
-    if (message['conversation_id'] != activeConversationId) {
-      _showNotification(
-        data['sender_name']?.toString() ?? 'New message',
-        message['body']?.toString() ??
-            (message['image'] != null ? '📷 Photo' : ''),
-        message['conversation_id'] is int ? message['conversation_id'] : 0,
-      );
-    }
-  }
+    if (message['conversation_id'] == activeConversationId) return;
 
-  Future<void> _initNotifications() async {
-    if (_notificationsReady) return;
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
-    const iosSettings = DarwinInitializationSettings();
-    try {
-      await _notifications.initialize(
-        const InitializationSettings(
-          android: androidSettings,
-          iOS: iosSettings,
-        ),
-      );
-      _notificationsReady = true;
-    } catch (e) {
-      // Chat still works without system notifications.
-      debugPrint('CHAT NOTIFICATIONS UNAVAILABLE: $e');
-    }
-  }
+    // In the background, Firebase shows the notification instead; showing
+    // one here too would make it appear twice.
+    final inForeground =
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    if (!inForeground && PushService.instance.isAvailable) return;
 
-  Future<void> _showNotification(
-    String title,
-    String body,
-    int conversationId,
-  ) async {
-    if (!_notificationsReady) return;
-    const androidDetails = AndroidNotificationDetails(
-      'chat_channel',
-      'Messages',
-      channelDescription: 'Chat messages from residents and personnel',
-      importance: Importance.high,
-      priority: Priority.high,
+    final conversationId =
+        message['conversation_id'] is int ? message['conversation_id'] : 0;
+    PushService.instance.showLocal(
+      // Offset so chat notifications never replace SOS ones (ids 0 and 1).
+      id: 1000 + conversationId as int,
+      title: data['sender_name']?.toString() ?? 'New message',
+      body: message['body']?.toString() ??
+          (message['image'] != null ? '📷 Photo' : ''),
+      channelId: 'chat_channel',
+      data: {'type': 'chat', 'conversation_id': conversationId},
     );
-    try {
-      await _notifications.show(
-        // Offset so chat notifications never replace SOS ones (ids 0 and 1).
-        1000 + conversationId,
-        title,
-        body,
-        const NotificationDetails(
-          android: androidDetails,
-          iOS: DarwinNotificationDetails(),
-        ),
-      );
-    } catch (e) {
-      debugPrint('CHAT NOTIFICATION ERROR: $e');
-    }
   }
 }
 

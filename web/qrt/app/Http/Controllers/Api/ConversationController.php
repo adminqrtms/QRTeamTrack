@@ -11,6 +11,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -195,7 +196,20 @@ class ConversationController extends Controller
 
         $conversation->update(['last_message_at' => $message->created_at]);
 
-        $this->broadcastSafely(new MessageSent($message, $conversation->otherParticipantId($user)));
+        $recipientId = $conversation->otherParticipantId($user);
+        $this->broadcastSafely(new MessageSent($message, $recipientId));
+
+        // Push notification for when the recipient's app is closed or in the background
+        app(PushNotificationService::class)->sendToUsersAfterResponse(
+            [$recipientId],
+            $user->name,
+            $body ?? '📷 Photo',
+            [
+                'type' => 'chat',
+                'conversation_id' => $conversation->id,
+                'tag' => 'chat_' . $conversation->id,
+            ],
+        );
 
         return response()->json(['data' => $message], 201);
     }

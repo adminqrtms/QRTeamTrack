@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
+import 'services/push_service.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/resident_home.dart';
@@ -13,6 +14,7 @@ import 'pages/report_details_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiService.loadAuth();
+  await PushService.instance.init();
   runApp(MyApp());
 }
 
@@ -32,6 +34,7 @@ class MyApp extends StatelessWidget {
     }
 
     return MaterialApp(
+      navigatorKey: PushService.navigatorKey,
       title: 'Barangay System',
       debugShowCheckedModeBanner: false,
       initialRoute: initialRoute,

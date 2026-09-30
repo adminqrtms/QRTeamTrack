@@ -8,6 +8,7 @@ import 'conversations_page.dart';
 import 'chat_page.dart';
 import '../services/chat_service.dart';
 import '../services/realtime_service.dart';
+import '../services/push_service.dart';
 
 class ResidentHomePage extends StatefulWidget {
   const ResidentHomePage({super.key});
@@ -28,6 +29,10 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
     super.initState();
     _fetchUserData();
     RealtimeService.instance.connect();
+    PushService.instance.registerDevice();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => PushService.instance.handleLaunchNotification(),
+    );
     _refreshUnreadMessages();
     _incomingMessageSubscription = RealtimeService.instance.incomingMessages
         .listen((_) => _refreshUnreadMessages());

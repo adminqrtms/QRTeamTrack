@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'realtime_service.dart';
+import 'push_service.dart';
 
 class ApiService {
   static const String baseUrl = "http://192.168.0.22:8000/api";
@@ -21,6 +22,7 @@ class ApiService {
 
   // Logout: Clear storage and static variables
   static Future<void> logout() async {
+    await PushService.instance.unregisterDevice();
     await RealtimeService.instance.disconnect();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
