@@ -79,27 +79,73 @@ class PushNotificationService
         }
     }
 
+    /**
+     * Queue a data-only message (no visible notification by itself): the app
+     * decides what to do with it, even when closed. Used for incoming calls.
+     */
+    public function sendDataToUsersAfterResponse(iterable $userIds, array $data): void
+    {
+        if (!$this->isConfigured()) {
+            return;
+        }
+
+        $userIds = collect($userIds)->unique()->values()->all();
+        if (empty($userIds)) {
+            return;
+        }
+
+        dispatch(function () use ($userIds, $data) {
+            app(self::class)->sendDataToUsers($userIds, $data);
+        })->afterResponse();
+    }
+
+    public function sendDataToUsers(iterable $userIds, array $data): void
+    {
+        if (!$this->isConfigured()) {
+            return;
+        }
+
+        $tokens = DeviceToken::whereIn('user_id', collect($userIds)->all())->pluck('token');
+
+        Log::info('Push data "' . ($data['type'] ?? '') . '" to ' . $tokens->count() . ' phone(s) of user ids: ' . collect($userIds)->implode(', '));
+
+        foreach ($tokens as $token) {
+            $this->post($token, $this->dataMessage($token, $data));
+        }
+    }
+
     private function sendToToken(string $token, string $title, string $body, array $data, string $channel, bool $fullScreen): void
+    {
+        if ($fullScreen) {
+            // Data-only: Android hands it to the app (even when closed), which
+            // shows the full-screen alert itself.
+            $message = $this->dataMessage($token, $data + [
+                'title' => $title,
+                'body' => $body,
+                'full_screen' => '1',
+            ]);
+        } else {
+            $message = $this->notificationMessage($token, $title, $body, $data, $channel);
+        }
+
+        $this->post($token, $message);
+    }
+
+    private function dataMessage(string $token, array $data): array
+    {
+        return [
+            'token' => $token,
+            // FCM data values must be strings.
+            'data' => array_map('strval', $data),
+            'android' => ['priority' => 'high'],
+        ];
+    }
+
+    private function post(string $token, array $message): void
     {
         try {
             $accessToken = $this->accessToken();
             $projectId = $this->credentials()['project_id'];
-
-            if ($fullScreen) {
-                // Data-only: Android hands it to the app (even when closed), which
-                // shows the full-screen alert itself.
-                $message = [
-                    'token' => $token,
-                    'data' => array_map('strval', $data + [
-                        'title' => $title,
-                        'body' => $body,
-                        'full_screen' => '1',
-                    ]),
-                    'android' => ['priority' => 'high'],
-                ];
-            } else {
-                $message = $this->notificationMessage($token, $title, $body, $data, $channel);
-            }
 
             $response = Http::withToken($accessToken)
                 ->timeout(10)

@@ -34,6 +34,13 @@ return [
         'credentials' => env('FCM_CREDENTIALS', storage_path('app/firebase-credentials.json')),
     ],
 
+    // LiveKit (audio/video calls). The defaults match `livekit-server --dev`.
+    'livekit' => [
+        'url' => env('LIVEKIT_URL'),
+        'key' => env('LIVEKIT_API_KEY', 'devkey'),
+        'secret' => env('LIVEKIT_API_SECRET', 'secret'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

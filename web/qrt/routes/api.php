@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\PersonnelController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\DeviceTokenController;
+use App\Http\Controllers\Api\CallController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -44,6 +45,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations/{id}/messages', [ConversationController::class, 'messages'])->whereNumber('id');
     Route::post('/conversations/{id}/messages', [ConversationController::class, 'sendMessage'])->whereNumber('id');
     Route::post('/conversations/{id}/read', [ConversationController::class, 'markRead'])->whereNumber('id');
+
+    // Audio/video calls (LiveKit)
+    Route::post('/conversations/{id}/calls', [CallController::class, 'start'])->whereNumber('id');
+    Route::get('/calls/{id}', [CallController::class, 'show'])->whereNumber('id');
+    Route::post('/calls/{id}/accept', [CallController::class, 'accept'])->whereNumber('id');
+    Route::post('/calls/{id}/decline', [CallController::class, 'decline'])->whereNumber('id');
+    Route::post('/calls/{id}/end', [CallController::class, 'end'])->whereNumber('id');
 
 
     // Attendance Toggle Route
