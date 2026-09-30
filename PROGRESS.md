@@ -27,6 +27,8 @@ One-time setup:
 2. In `web/qrt`: `php artisan migrate` and `php artisan storage:link`.
 3. Windows firewall: allow inbound TCP ports 8000 and 8080.
 
+After pulling new code: double-click **`update.bat`** (pull, composer install, migrate, flutter pub get).
+
 Every time (Windows, double-click in the project folder):
 4. **`start-server.bat`** – opens the Laravel API and Reverb in two windows and shows the URLs.
 5. **`run-app.bat`** – runs the app using this PC's current IP (no editing `api_service.dart`).
