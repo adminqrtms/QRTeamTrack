@@ -46,7 +46,8 @@ Every time (Windows, double-click in the project folder):
 8. Calls: put `livekit-server.exe` (Windows zip from github.com/livekit/livekit/releases) in
    `tools/livekit/`; `start-server.bat` then also starts it (dev mode: key `devkey`, secret `secret`).
    Firewall: TCP 7880, 7881 and UDP 7882. For LiveKit Cloud / a hosted server set `LIVEKIT_URL`,
-   `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` in `web/qrt/.env`.
+   `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` in `web/qrt/.env`, then `php artisan config:clear`.
+   Check the settings with `php artisan livekit:check` (in `web/qrt`).
 9. Xiaomi / Redmi phones (personnel), so alerts arrive with the app closed:
    - App info: **Autostart** on, **Battery saver → No restrictions**, lock the app in recent apps.
    - **Other permissions**: Show on Lock screen, Display pop-up windows while running in the background, Display pop-up window.
