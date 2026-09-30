@@ -19,14 +19,17 @@ Back-end tests: `cd web/qrt && php artisan test` (24 passing).
 
 ## How to run locally
 
+One-time setup:
 1. `web/qrt/.env`: `BROADCAST_CONNECTION=reverb` plus the `REVERB_*` values from `.env.example`.
-2. `php artisan migrate` and `php artisan storage:link` (once).
-3. Two terminals in `web/qrt`, both left running:
-   - `php artisan serve --host=0.0.0.0 --port=8000`
-   - `php artisan reverb:start`
-4. `mobile/mobile_qrtms/lib/services/api_service.dart` line 8: set `baseUrl` to the PC's Wi‑Fi IP.
-5. Resident: phone (`flutter run -d <phone-id>`; Xiaomi needs "Install via USB" on).
-   Personnel: Chrome (`flutter run -d chrome`, fake GPS via DevTools → Sensors) or an Android emulator.
+2. In `web/qrt`: `php artisan migrate` and `php artisan storage:link`.
+3. Windows firewall: allow inbound TCP ports 8000 and 8080.
+
+Every time (Windows, double-click in the project folder):
+4. **`start-server.bat`** – opens the Laravel API and Reverb in two windows and shows the URLs.
+5. **`run-app.bat`** – runs the app using this PC's current IP (no editing `api_service.dart`).
+   Pick a device from the list, or pass one: `run-app.bat chrome`, `run-app.bat 22101316G`.
+   Resident on the phone (Xiaomi needs "Install via USB" on); personnel in Chrome
+   (fake GPS via DevTools → Sensors) or an Android emulator.
 6. Personnel can only TIME IN with a schedule for today and within 200 m of the station.
 7. Push notifications (Firebase project `qrteamtrack-002`, Android app `com.example.mobile_qrtms`).
    Both files stay out of git:

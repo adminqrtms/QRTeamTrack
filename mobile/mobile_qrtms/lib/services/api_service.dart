@@ -6,8 +6,12 @@ import 'realtime_service.dart';
 import 'push_service.dart';
 
 class ApiService {
-  static const String baseUrl = "http://192.168.0.22:8000/api";
-  // ⚠️ replace with your PC IP
+  // run-app.bat fills this in with the PC's current IP automatically
+  // (flutter run --dart-define=API_URL=http://<ip>:8000/api).
+  static const String baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: "http://192.168.0.22:8000/api",
+  );
   static String? token;
   static String? role;
   static String? userId;
