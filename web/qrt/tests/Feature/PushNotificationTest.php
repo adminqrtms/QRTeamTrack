@@ -177,9 +177,15 @@ class PushNotificationTest extends TestCase
         $messages = $this->sentMessages();
         $this->assertCount(1, $messages);
         $this->assertSame('on-duty-phone', $messages[0]['token']);
-        $this->assertSame('EMERGENCY SOS!', $messages[0]['notification']['title']);
+
+        // Sent as a data-only message so the app can show a full-screen alert.
+        $this->assertArrayNotHasKey('notification', $messages[0]);
+        $this->assertSame('EMERGENCY SOS!', $messages[0]['data']['title']);
+        $this->assertStringContainsString($this->resident->name, $messages[0]['data']['body']);
+        $this->assertSame('1', $messages[0]['data']['full_screen']);
+        $this->assertSame('alarm', $messages[0]['data']['type']);
         $this->assertSame((string) $alarmId, $messages[0]['data']['alarm_id']);
-        $this->assertSame('emergency_channel', $messages[0]['android']['notification']['channel_id']);
+        $this->assertSame('high', $messages[0]['android']['priority']);
     }
 
     public function test_resident_is_told_when_a_responder_accepts_the_sos(): void

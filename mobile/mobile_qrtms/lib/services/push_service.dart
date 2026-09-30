@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -5,11 +6,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../pages/alarm_details_page.dart';
 import '../pages/chat_page.dart';
 import 'api_service.dart';
 import 'chat_service.dart';
 import 'realtime_service.dart';
+
+/// Runs when a push arrives while the app is in the background or closed.
+/// SOS alarms come as data messages, so the app shows them itself as a
+/// full-screen alert (like an incoming call), even over the lock screen.
+@pragma('vm:entry-point')
+Future<void> firebaseBackgroundMessageHandler(RemoteMessage message) async {
+  if (message.data['full_screen'] == '1') {
+    await PushService.showFullScreenAlert(message.data);
+  }
+}
 
 /// Push notifications through Firebase Cloud Messaging, plus the app's
 /// notification channels and what happens when a notification is tapped.
@@ -26,6 +38,19 @@ class PushService {
 
   final FlutterLocalNotificationsPlugin localNotifications =
       FlutterLocalNotificationsPlugin();
+
+  static const String _emergencyChannelId = 'emergency_channel';
+
+  /// Notification id shared with the home screen's SOS notification, so a
+  /// full-screen alert and the in-app one replace each other.
+  static const int _sosNotificationId = 0;
+
+  final StreamController<int> _alarmAlertController =
+      StreamController<int>.broadcast();
+
+  /// Alarm ids to show as the in-app SOS pop-up (the personnel home screen
+  /// listens and shows its EMERGENCY ALARM dialog).
+  Stream<int> get alarmAlerts => _alarmAlertController.stream;
 
   bool _firebaseReady = false;
   bool _localNotificationsReady = false;
@@ -47,6 +72,8 @@ class PushService {
       debugPrint('PUSH NOTIFICATIONS DISABLED (no Firebase config): $e');
       return;
     }
+
+    FirebaseMessaging.onBackgroundMessage(firebaseBackgroundMessageHandler);
 
     // App was in the background and the user tapped a notification
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
@@ -86,13 +113,7 @@ class PushService {
           importance: Importance.high,
         ),
       );
-      await android?.createNotificationChannel(
-        const AndroidNotificationChannel(
-          'emergency_channel',
-          'Emergency Alarms',
-          importance: Importance.max,
-        ),
-      );
+      await _createEmergencyChannel(localNotifications);
       _localNotificationsReady = true;
     } catch (e) {
       debugPrint('LOCAL NOTIFICATIONS UNAVAILABLE: $e');
@@ -114,9 +135,97 @@ class PushService {
         _tokenRefreshListening = true;
         messaging.onTokenRefresh.listen(_sendToken);
       }
+
+      if (ApiService.role == 'personnel') {
+        await _askForFullScreenAlertsOnce();
+      }
     } catch (e) {
       debugPrint('PUSH REGISTER ERROR: $e');
     }
+  }
+
+  /// Android 14+ asks the user to allow full-screen alerts for apps that
+  /// aren't phone or alarm-clock apps. Explain why, then open that setting
+  /// (only once; on older Android versions nothing is shown).
+  Future<void> _askForFullScreenAlertsOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('asked_full_screen_alerts') == true) return;
+    await prefs.setBool('asked_full_screen_alerts', true);
+
+    final android = localNotifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) return;
+
+    final context = navigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Full-screen SOS alerts'),
+          content: const Text(
+            'To see SOS emergencies instantly, even when your phone is locked, '
+            'please allow full-screen notifications for this app on the next '
+            'screen (if your phone asks).',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+    await android.requestFullScreenIntentPermission();
+  }
+
+  /// Shows an SOS as a full-screen alert. Works from the background
+  /// message handler, where the rest of the app isn't running.
+  static Future<void> showFullScreenAlert(Map<String, dynamic> data) async {
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      ),
+    );
+    await _createEmergencyChannel(plugin);
+
+    await plugin.show(
+      _sosNotificationId,
+      data['title'] ?? 'EMERGENCY SOS!',
+      data['body'] ?? 'A resident needs help.',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _emergencyChannelId,
+          'Emergency Alarms',
+          importance: Importance.max,
+          priority: Priority.max,
+          category: AndroidNotificationCategory.alarm,
+          fullScreenIntent: true,
+          visibility: NotificationVisibility.public,
+          ticker: 'EMERGENCY SOS',
+        ),
+      ),
+      payload: jsonEncode({
+        'type': data['type'],
+        'alarm_id': data['alarm_id'],
+      }),
+    );
+  }
+
+  static Future<void> _createEmergencyChannel(
+    FlutterLocalNotificationsPlugin plugin,
+  ) async {
+    await plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _emergencyChannelId,
+            'Emergency Alarms',
+            importance: Importance.max,
+          ),
+        );
   }
 
   /// Stops notifications to this phone. Call before clearing the login.
@@ -183,11 +292,19 @@ class PushService {
         );
       }
     } else if (data['type'] == 'alarm' && ApiService.role == 'personnel') {
-      final alarm = await _getAlarm(data['alarm_id']);
-      if (alarm != null) {
-        navigator.push(
-          MaterialPageRoute(builder: (_) => AlarmDetailsPage(data: alarm)),
-        );
+      final id = int.tryParse('${data['alarm_id']}');
+      if (id == null) return;
+
+      if (_alarmAlertController.hasListener) {
+        // The home screen shows its EMERGENCY ALARM pop-up.
+        _alarmAlertController.add(id);
+      } else {
+        final alarm = await getAlarm(id);
+        if (alarm != null) {
+          navigator.push(
+            MaterialPageRoute(builder: (_) => AlarmDetailsPage(data: alarm)),
+          );
+        }
       }
     }
     // Residents: the home screen already shows the SOS status.
@@ -225,7 +342,15 @@ class PushService {
 
   void _handleForegroundMessage(RemoteMessage message) {
     final data = message.data;
-    // SOS alarms are already shown by the home screens while the app is open.
+
+    // SOS while the app is open: show the in-app pop-up right away.
+    if (data['type'] == 'alarm') {
+      final id = int.tryParse('${data['alarm_id']}');
+      if (id != null && ApiService.role == 'personnel') {
+        _alarmAlertController.add(id);
+      }
+      return;
+    }
     if (data['type'] != 'chat') return;
 
     // The live connection already shows chat notifications while it's up.
@@ -262,7 +387,8 @@ class PushService {
     }
   }
 
-  Future<Map<String, dynamic>?> _getAlarm(dynamic id) async {
+  /// Loads an alarm with its resident details, or null if it can't be loaded.
+  Future<Map<String, dynamic>?> getAlarm(int id) async {
     try {
       final response = await http.get(
         Uri.parse('${ApiService.baseUrl}/alarms/$id'),

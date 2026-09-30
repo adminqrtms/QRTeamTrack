@@ -36,6 +36,7 @@ class PushNotificationService
         string $body,
         array $data = [],
         string $channel = self::CHANNEL_CHAT,
+        bool $fullScreen = false,
     ): void {
         if (!$this->isConfigured()) {
             return;
@@ -46,13 +47,16 @@ class PushNotificationService
             return;
         }
 
-        dispatch(function () use ($userIds, $title, $body, $data, $channel) {
-            app(self::class)->sendToUsers($userIds, $title, $body, $data, $channel);
+        dispatch(function () use ($userIds, $title, $body, $data, $channel, $fullScreen) {
+            app(self::class)->sendToUsers($userIds, $title, $body, $data, $channel, $fullScreen);
         })->afterResponse();
     }
 
     /**
      * Send a notification to every registered phone of the given users.
+     *
+     * With $fullScreen, the app itself shows the notification as a
+     * full-screen alert (like an incoming call), even over the lock screen.
      */
     public function sendToUsers(
         iterable $userIds,
@@ -60,6 +64,7 @@ class PushNotificationService
         string $body,
         array $data = [],
         string $channel = self::CHANNEL_CHAT,
+        bool $fullScreen = false,
     ): void {
         if (!$this->isConfigured()) {
             return;
@@ -68,44 +73,36 @@ class PushNotificationService
         $tokens = DeviceToken::whereIn('user_id', collect($userIds)->all())->pluck('token');
 
         foreach ($tokens as $token) {
-            $this->sendToToken($token, $title, $body, $data, $channel);
+            $this->sendToToken($token, $title, $body, $data, $channel, $fullScreen);
         }
     }
 
-    private function sendToToken(string $token, string $title, string $body, array $data, string $channel): void
+    private function sendToToken(string $token, string $title, string $body, array $data, string $channel, bool $fullScreen): void
     {
         try {
             $accessToken = $this->accessToken();
             $projectId = $this->credentials()['project_id'];
 
-            $androidNotification = [
-                'channel_id' => $channel,
-                'sound' => 'default',
-            ];
-            if (isset($data['tag'])) {
-                // Newer notifications with the same tag replace older ones.
-                $androidNotification['tag'] = $data['tag'];
-            }
-            if ($channel === self::CHANNEL_EMERGENCY) {
-                $androidNotification['notification_priority'] = 'PRIORITY_MAX';
+            if ($fullScreen) {
+                // Data-only: Android hands it to the app (even when closed), which
+                // shows the full-screen alert itself.
+                $message = [
+                    'token' => $token,
+                    'data' => array_map('strval', $data + [
+                        'title' => $title,
+                        'body' => $body,
+                        'full_screen' => '1',
+                    ]),
+                    'android' => ['priority' => 'high'],
+                ];
+            } else {
+                $message = $this->notificationMessage($token, $title, $body, $data, $channel);
             }
 
             $response = Http::withToken($accessToken)
                 ->timeout(10)
                 ->post("https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send", [
-                    'message' => [
-                        'token' => $token,
-                        'notification' => [
-                            'title' => $title,
-                            'body' => $body,
-                        ],
-                        // FCM data values must be strings.
-                        'data' => array_map('strval', $data),
-                        'android' => [
-                            'priority' => 'high',
-                            'notification' => $androidNotification,
-                        ],
-                    ],
+                    'message' => $message,
                 ]);
 
             if ($response->status() === 404) {
@@ -117,6 +114,38 @@ class PushNotificationService
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * A regular notification, shown by Android itself.
+     */
+    private function notificationMessage(string $token, string $title, string $body, array $data, string $channel): array
+    {
+        $androidNotification = [
+            'channel_id' => $channel,
+            'sound' => 'default',
+        ];
+        if (isset($data['tag'])) {
+            // Newer notifications with the same tag replace older ones.
+            $androidNotification['tag'] = $data['tag'];
+        }
+        if ($channel === self::CHANNEL_EMERGENCY) {
+            $androidNotification['notification_priority'] = 'PRIORITY_MAX';
+        }
+
+        return [
+            'token' => $token,
+            'notification' => [
+                'title' => $title,
+                'body' => $body,
+            ],
+            // FCM data values must be strings.
+            'data' => array_map('strval', $data),
+            'android' => [
+                'priority' => 'high',
+                'notification' => $androidNotification,
+            ],
+        ];
     }
 
     /**

@@ -32,6 +32,7 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
   int _activeIncidentCount = 0;
   int _unreadMessages = 0;
   StreamSubscription? _incomingMessageSubscription;
+  StreamSubscription<int>? _alarmAlertSubscription;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -44,6 +45,9 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
     startAutoRefresh();
     RealtimeService.instance.connect();
     PushService.instance.registerDevice();
+    // SOS from a push notification (full-screen alert, tap, or app open)
+    _alarmAlertSubscription =
+        PushService.instance.alarmAlerts.listen(_showAlarmFromPush);
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => PushService.instance.handleLaunchNotification(),
     );
@@ -123,6 +127,7 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
   void dispose() {
     _alarmPollingTimer?.cancel();
     _incomingMessageSubscription?.cancel();
+    _alarmAlertSubscription?.cancel();
     super.dispose();
   }
 
@@ -288,6 +293,27 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
       setState(() {
         _activeIncidentCount = activeAlarms + activeReports;
       });
+    }
+  }
+
+  /// Shows the EMERGENCY ALARM pop-up for an SOS that came in by push.
+  Future<void> _showAlarmFromPush(int alarmId) async {
+    if (_displayedAlarmId == alarmId) return; // already on screen
+    final alarm = await PushService.instance.getAlarm(alarmId);
+    if (alarm == null || !mounted || _displayedAlarmId == alarmId) return;
+
+    if (alarm['status'] == 'triggered') {
+      // Keep the regular check from showing the same SOS again.
+      if (_lastAlarmId == null || alarmId > _lastAlarmId!) {
+        _lastAlarmId = alarmId;
+      }
+      _showEmergencyDialog(alarm);
+    } else {
+      // Someone already responded (or it was cancelled): show the details.
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => AlarmDetailsPage(data: alarm)),
+      );
     }
   }
 

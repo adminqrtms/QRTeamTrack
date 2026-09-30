@@ -144,6 +144,7 @@ class AlarmController extends Controller
                 'tag' => 'alarm_' . $alarm->id,
             ],
             PushNotificationService::CHANNEL_EMERGENCY,
+            fullScreen: true,
         );
 
         return response()->json([
