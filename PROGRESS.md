@@ -59,7 +59,12 @@ Every time (Windows, double-click in the project folder):
 
 ## Next (planned)
 
-1. **Smaller items** – Terms and Conditions in the resident menu; photo sending from the Chrome build.
+1. **In-app updates (self-hosted, no Play Store)** – web admin "App Updates" page to upload a release
+   APK with version + change list (optionally "required"); the app checks on start and shows
+   "Update available" with the changes and **Update now** (download with progress, then Android's
+   installer). Needs: a release signing key (one-time uninstall of the debug build), version bumps in
+   `pubspec.yaml`, `REQUEST_INSTALL_PACKAGES`, and a `build-release.bat`.
+2. **Smaller items** – Terms and Conditions in the resident menu; photo sending from the Chrome build.
 
 ## Known notes
 
