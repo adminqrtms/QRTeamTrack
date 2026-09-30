@@ -202,6 +202,12 @@ class PushNotificationService
 
         $path = config('services.fcm.credentials');
         if (!$path || !is_file($path)) {
+            static $warned = false;
+            if (!$warned) {
+                $warned = true;
+                Log::warning("Push notifications are OFF: Firebase key file not found at {$path}");
+            }
+
             return null;
         }
 
