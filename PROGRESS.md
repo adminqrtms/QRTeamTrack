@@ -16,8 +16,9 @@ Start new work from this branch.
 | Firebase push notifications: new messages, SOS to on-duty personnel, "help is on the way" to the resident; tap opens the chat/alarm | `app/Services/PushNotificationService.php`, `lib/services/push_service.dart` |
 | SOS alert for personnel even when the app is closed: full-screen alarm when locked, large banner with **I'M COMING / VIEW DETAILS** buttons, repeating sound | `showFullScreenAlert` in `lib/services/push_service.dart` |
 | One-click launchers: `start-server.bat`, `run-app.bat` (detects the PC's IP) | project root, `scripts/` |
+| Audio & video calls (LiveKit): call buttons in the chat, ringing screen + ringtone notification with Accept/Decline (also when the app is closed), mute / speaker / camera / flip, call records in the chat ("📞 Voice call · 02:05", "Missed video call") | `CallController.php`, `LiveKitService.php`, `lib/services/call_service.dart`, `lib/pages/call_page.dart`, `lib/pages/incoming_call_page.dart` |
 
-Back-end tests: `cd web/qrt && php artisan test` (24 passing).
+Back-end tests: `cd web/qrt && php artisan test` (35 passing).
 
 ## How to run locally
 
@@ -40,7 +41,11 @@ Every time (Windows, double-click in the project folder):
    - `web/qrt/storage/app/firebase-credentials.json` (service account private key)
    Without them, everything still works, just without push notifications.
    Delivery is logged in `web/qrt/storage/logs/laravel.log` ("SOS #…", "Push … to N phone(s)", "FCM accepted…").
-8. Xiaomi / Redmi phones (personnel), so alerts arrive with the app closed:
+8. Calls: put `livekit-server.exe` (Windows zip from github.com/livekit/livekit/releases) in
+   `tools/livekit/`; `start-server.bat` then also starts it (dev mode: key `devkey`, secret `secret`).
+   Firewall: TCP 7880, 7881 and UDP 7882. For LiveKit Cloud / a hosted server set `LIVEKIT_URL`,
+   `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` in `web/qrt/.env`.
+9. Xiaomi / Redmi phones (personnel), so alerts arrive with the app closed:
    - App info: **Autostart** on, **Battery saver → No restrictions**, lock the app in recent apps.
    - **Other permissions**: Show on Lock screen, Display pop-up windows while running in the background, Display pop-up window.
    - **Notifications → Emergency Alarms**: Floating notifications, Lock screen notifications, Sound.
@@ -49,12 +54,12 @@ Every time (Windows, double-click in the project folder):
 
 ## Next (planned)
 
-1. **Audio and video calls** – call buttons in the chat, full-screen ringing, using LiveKit
-   (run locally on the PC first; LiveKit Cloud or a hosted server later).
-2. **Smaller items** – Terms and Conditions in the resident menu; photo sending from the Chrome build.
+1. **Smaller items** – Terms and Conditions in the resident menu; photo sending from the Chrome build.
 
 ## Known notes
 
 - Photo uploads don't work in the Chrome (web) build.
 - iOS needs camera/photo-library permission texts in `Info.plist` before photos can be used on iPhone.
-- For real deployment, the Laravel, Reverb (and later LiveKit) servers must be hosted online.
+- For real deployment, the Laravel, Reverb and LiveKit servers must be hosted online.
+- Calls keep working only while the app is on screen; leaving the app mid-call can cut the microphone
+  (a foreground service would be needed for background calls).

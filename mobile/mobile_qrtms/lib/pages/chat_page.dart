@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/chat_service.dart';
 import '../services/realtime_service.dart';
+import '../services/call_service.dart';
 
 /// A one-to-one chat between a resident and a personnel.
 ///
@@ -258,6 +259,20 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         titleSpacing: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.call),
+            tooltip: 'Voice call',
+            onPressed: () => CallService.instance
+                .startCall(context, widget.conversation, 'audio'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam),
+            tooltip: 'Video call',
+            onPressed: () => CallService.instance
+                .startCall(context, widget.conversation, 'video'),
+          ),
+        ],
         title: Row(
           children: [
             ChatAvatar(user: other, radius: 18),
@@ -338,7 +353,8 @@ class _ChatPageState extends State<ChatPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
           ],
         ),
         child: Row(

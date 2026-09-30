@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../pages/alarm_details_page.dart';
 import '../pages/chat_page.dart';
 import 'api_service.dart';
+import 'call_service.dart';
 import 'chat_service.dart';
 import 'realtime_service.dart';
 
@@ -18,8 +19,13 @@ import 'realtime_service.dart';
 /// full-screen alert (like an incoming call), even over the lock screen.
 @pragma('vm:entry-point')
 Future<void> firebaseBackgroundMessageHandler(RemoteMessage message) async {
-  if (message.data['full_screen'] == '1') {
-    await PushService.showFullScreenAlert(message.data);
+  final data = message.data;
+  if (data['type'] == 'call') {
+    await PushService.showIncomingCallAlert(data);
+  } else if (data['type'] == 'call_ended') {
+    await PushService.cancelCallAlert(int.tryParse('${data['call_id']}') ?? 0);
+  } else if (data['full_screen'] == '1') {
+    await PushService.showFullScreenAlert(data);
   }
 }
 
@@ -44,6 +50,15 @@ class PushService {
   /// Buttons on the SOS notification.
   static const String actionRespond = 'respond';
   static const String actionView = 'view';
+
+  /// Buttons on the incoming call notification.
+  static const String actionAccept = 'accept_call';
+  static const String actionDecline = 'decline_call';
+
+  static const String _callChannelId = 'call_channel';
+
+  /// Incoming call notifications use ids from here up (plus the call id).
+  static const int _callNotificationBase = 3000;
 
   /// Android's FLAG_INSISTENT: the alarm sound repeats until the
   /// notification is opened or dismissed.
@@ -250,6 +265,85 @@ class PushService {
     );
   }
 
+  /// Shows an incoming call like a phone call: full screen when locked,
+  /// ringtone repeating until answered, Accept / Decline buttons.
+  /// Also works from the background message handler.
+  static Future<void> showIncomingCallAlert(Map<String, dynamic> data) async {
+    final callId = int.tryParse('${data['call_id']}');
+    if (callId == null) return;
+
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      ),
+    );
+    await plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _callChannelId,
+            'Calls',
+            description: 'Incoming voice and video calls',
+            importance: Importance.max,
+            sound: UriAndroidNotificationSound(
+              'content://settings/system/ringtone',
+            ),
+            audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
+          ),
+        );
+
+    final isVideo = data['call_type'] == 'video';
+    await plugin.show(
+      _callNotificationBase + callId,
+      data['caller_name'] ?? 'Incoming call',
+      isVideo ? 'Incoming video call' : 'Incoming voice call',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _callChannelId,
+          'Calls',
+          importance: Importance.max,
+          priority: Priority.max,
+          category: AndroidNotificationCategory.call,
+          fullScreenIntent: true,
+          visibility: NotificationVisibility.public,
+          ongoing: true,
+          autoCancel: false,
+          // Stop ringing after the caller's ring time, even if nothing else does
+          timeoutAfter: CallService.ringTimeout.inMilliseconds + 5000,
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          additionalFlags: Int32List.fromList(<int>[_flagInsistent]),
+          actions: const <AndroidNotificationAction>[
+            AndroidNotificationAction(
+              actionDecline,
+              'DECLINE',
+              showsUserInterface: true,
+              titleColor: Color(0xFFD32F2F),
+            ),
+            AndroidNotificationAction(
+              actionAccept,
+              'ACCEPT',
+              showsUserInterface: true,
+              titleColor: Color(0xFF2E7D32),
+            ),
+          ],
+        ),
+      ),
+      payload: jsonEncode({'type': 'call', 'call_id': '$callId'}),
+    );
+  }
+
+  static Future<void> cancelCallAlert(int callId) async {
+    if (kIsWeb) return;
+    try {
+      await FlutterLocalNotificationsPlugin()
+          .cancel(_callNotificationBase + callId);
+    } catch (e) {
+      debugPrint('CANCEL CALL ALERT ERROR: $e');
+    }
+  }
+
   static Future<void> _createEmergencyChannel(
     FlutterLocalNotificationsPlugin plugin,
   ) async {
@@ -320,6 +414,14 @@ class PushService {
   }) async {
     final navigator = navigatorKey.currentState;
     if (navigator == null || ApiService.token == null) return;
+
+    if (data['type'] == 'call') {
+      final id = int.tryParse('${data['call_id']}');
+      if (id != null) {
+        await CallService.instance.openFromNotification(id, actionId);
+      }
+      return;
+    }
 
     if (data['type'] == 'chat') {
       final id = int.tryParse('${data['conversation_id']}');
@@ -410,6 +512,18 @@ class PushService {
 
   void _handleForegroundMessage(RemoteMessage message) {
     final data = message.data;
+
+    // Calls while the app is open (the live connection usually gets there first)
+    if (data['type'] == 'call') {
+      final id = int.tryParse('${data['call_id']}');
+      if (id != null) CallService.instance.showIncomingById(id);
+      return;
+    }
+    if (data['type'] == 'call_ended') {
+      final id = int.tryParse('${data['call_id']}');
+      if (id != null) CallService.instance.markEnded(id);
+      return;
+    }
 
     // SOS while the app is open: show the in-app pop-up right away.
     if (data['type'] == 'alarm') {

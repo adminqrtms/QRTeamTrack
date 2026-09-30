@@ -11,6 +11,7 @@ import 'conversations_page.dart';
 import '../services/chat_service.dart';
 import '../services/realtime_service.dart';
 import '../services/push_service.dart';
+import '../services/call_service.dart';
 
 class PersonnelHomePage extends StatefulWidget {
   const PersonnelHomePage({super.key});
@@ -44,6 +45,7 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
     _fetchUserData();
     startAutoRefresh();
     RealtimeService.instance.connect();
+    CallService.instance.start();
     PushService.instance.registerDevice();
     // SOS from a push notification (full-screen alert, tap, or app open)
     _alarmAlertSubscription =

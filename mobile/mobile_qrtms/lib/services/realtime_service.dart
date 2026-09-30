@@ -21,10 +21,18 @@ class RealtimeService {
   StreamSubscription? _connectionSubscription;
   StreamSubscription? _lifecycleSubscription;
   StreamSubscription? _userMessageSubscription;
+  final List<StreamSubscription> _callSubscriptions = [];
   bool _isConnected = false;
 
   final StreamController<Map<String, dynamic>> _incomingController =
       StreamController<Map<String, dynamic>>.broadcast();
+
+  final StreamController<CallSignalEvent> _callController =
+      StreamController<CallSignalEvent>.broadcast();
+
+  /// Call events for the logged-in user: 'call.incoming', 'call.accepted',
+  /// 'call.ended', each with the call's details.
+  Stream<CallSignalEvent> get callSignals => _callController.stream;
 
   /// The conversation currently open on screen (no notification for it).
   int? activeConversationId;
@@ -91,6 +99,19 @@ class RealtimeService {
     _userMessageSubscription =
         _userChannel!.bind('message.sent').listen(_handleIncomingMessage);
 
+    for (final signal in ['call.incoming', 'call.accepted', 'call.ended']) {
+      _callSubscriptions.add(
+        _userChannel!.bind(signal).listen((event) {
+          final call = event.tryGetDataAsMap()?['call'];
+          if (call is Map) {
+            _callController.add(
+              CallSignalEvent(signal, Map<String, dynamic>.from(call)),
+            );
+          }
+        }),
+      );
+    }
+
     _connectionSubscription = client.onConnectionEstablished.listen((_) {
       _userChannel?.subscribeIfNotUnsubscribed();
     });
@@ -101,6 +122,10 @@ class RealtimeService {
   /// Disconnects (e.g. on logout).
   Future<void> disconnect() async {
     await _userMessageSubscription?.cancel();
+    for (final subscription in _callSubscriptions) {
+      await subscription.cancel();
+    }
+    _callSubscriptions.clear();
     await _connectionSubscription?.cancel();
     await _lifecycleSubscription?.cancel();
     _client?.dispose();
@@ -179,6 +204,17 @@ class RealtimeService {
       data: {'type': 'chat', 'conversation_id': conversationId},
     );
   }
+}
+
+/// A call event received over the live connection.
+class CallSignalEvent {
+  final String signal;
+  final Map<String, dynamic> call;
+
+  const CallSignalEvent(this.signal, this.call);
+
+  int? get callId =>
+      call['id'] is int ? call['id'] : int.tryParse('${call['id']}');
 }
 
 /// Handle returned by [RealtimeService.subscribeConversation].
