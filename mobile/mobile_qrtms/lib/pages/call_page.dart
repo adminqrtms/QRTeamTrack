@@ -127,22 +127,56 @@ class _CallPageState extends State<CallPage> {
 
     try {
       await room.connect(widget.livekit['url'], widget.livekit['token']);
-      await room.localParticipant?.setMicrophoneEnabled(true);
-      if (_isVideo) await room.localParticipant?.setCameraEnabled(true);
-      await _applySpeaker();
-
-      if (room.remoteParticipants.isNotEmpty) _onOtherJoined();
-      _refresh();
     } catch (e) {
       debugPrint('CALL CONNECT ERROR: $e');
       // Show the real reason and the server address, to make setup problems easy to spot
-      var reason = e.toString();
-      if (reason.length > 160) reason = '${reason.substring(0, 160)}…';
       _hangUp(
-        message:
-            "Couldn't connect the call to ${widget.livekit['url']}.\n$reason",
+        message: "Couldn't connect the call to ${widget.livekit['url']}.\n"
+            "${_shortError(e)}",
+      );
+      return;
+    }
+
+    // Connected. Microphone/camera problems (usually a blocked permission)
+    // shouldn't end the call: the other person can still be heard and seen.
+    try {
+      await room.localParticipant?.setMicrophoneEnabled(true);
+    } catch (e) {
+      debugPrint('MICROPHONE ERROR: $e');
+      if (mounted) setState(() => _micOn = false);
+      _showProblem(
+        'Microphone unavailable. Allow microphone access for this app, '
+        'then call again. (${_shortError(e)})',
       );
     }
+    if (_isVideo) {
+      try {
+        await room.localParticipant?.setCameraEnabled(true);
+      } catch (e) {
+        debugPrint('CAMERA ERROR: $e');
+        if (mounted) setState(() => _cameraOn = false);
+        _showProblem(
+          'Camera unavailable. Allow camera access for this app. '
+          '(${_shortError(e)})',
+        );
+      }
+    }
+    await _applySpeaker();
+
+    if (room.remoteParticipants.isNotEmpty) _onOtherJoined();
+    _refresh();
+  }
+
+  String _shortError(Object e) {
+    final text = e.toString();
+    return text.length > 160 ? '${text.substring(0, 160)}…' : text;
+  }
+
+  void _showProblem(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 10)),
+    );
   }
 
   void _onOtherJoined() {
