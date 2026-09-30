@@ -14,6 +14,8 @@ Start new work from this branch.
 | Real-time delivery with Laravel Reverb (falls back to polling if offline) | `routes/channels.php`, `lib/services/realtime_service.dart` |
 | Fresh-database fixes: report column names, SQLite-safe alarm sorting | migration `2026_09_29_090000_restore_report_column_names` |
 | Firebase push notifications: new messages, SOS to on-duty personnel, "help is on the way" to the resident; tap opens the chat/alarm | `app/Services/PushNotificationService.php`, `lib/services/push_service.dart` |
+| SOS alert for personnel even when the app is closed: full-screen alarm when locked, large banner with **I'M COMING / VIEW DETAILS** buttons, repeating sound | `showFullScreenAlert` in `lib/services/push_service.dart` |
+| One-click launchers: `start-server.bat`, `run-app.bat` (detects the PC's IP) | project root, `scripts/` |
 
 Back-end tests: `cd web/qrt && php artisan test` (24 passing).
 
@@ -37,6 +39,13 @@ Every time (Windows, double-click in the project folder):
    - `mobile/mobile_qrtms/android/app/google-services.json`
    - `web/qrt/storage/app/firebase-credentials.json` (service account private key)
    Without them, everything still works, just without push notifications.
+   Delivery is logged in `web/qrt/storage/logs/laravel.log` ("SOS #…", "Push … to N phone(s)", "FCM accepted…").
+8. Xiaomi / Redmi phones (personnel), so alerts arrive with the app closed:
+   - App info: **Autostart** on, **Battery saver → No restrictions**, lock the app in recent apps.
+   - **Other permissions**: Show on Lock screen, Display pop-up windows while running in the background, Display pop-up window.
+   - **Notifications → Emergency Alarms**: Floating notifications, Lock screen notifications, Sound.
+   - Android 14+: Special app access → **Full screen notifications** → allow.
+   Full-screen alarms only appear when the phone is locked; when it's in use Android shows the banner.
 
 ## Next (planned)
 
