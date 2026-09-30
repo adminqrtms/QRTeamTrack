@@ -5,9 +5,9 @@
 #   run-app.bat 22101316G   run on a specific phone
 #   run-app.bat emulator    start the Android emulator (if needed) and run on it
 #   run-app.bat 22101316G 192.168.1.15   use this IP instead of detecting it
-param([string]$Device = '', [string]$Ip = '')
+param([string]$Device = '', [string]$ServerIp = '')
 
-$ip = $Ip
+$ip = $ServerIp
 if (-not $ip) {
     $ip = & (Join-Path $PSScriptRoot 'lan-ip.ps1')
 }
