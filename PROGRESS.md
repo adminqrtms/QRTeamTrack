@@ -25,7 +25,7 @@ Back-end tests: `cd web/qrt && php artisan test` (35 passing).
 One-time setup:
 1. `web/qrt/.env`: `BROADCAST_CONNECTION=reverb` plus the `REVERB_*` values from `.env.example`.
 2. In `web/qrt`: `php artisan migrate` and `php artisan storage:link`.
-3. Windows firewall: allow inbound TCP ports 8000 and 8080.
+3. Windows firewall: double-click **`setup-firewall.bat`** (opens 8000, 8080, 7880, 7881, UDP 7882 and the LiveKit program).
 
 After pulling new code: double-click **`update.bat`** (pull, composer install, migrate, flutter pub get).
 
