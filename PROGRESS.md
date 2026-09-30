@@ -43,7 +43,9 @@ Every time (Windows, double-click in the project folder):
    - `web/qrt/storage/app/firebase-credentials.json` (service account private key)
    Without them, everything still works, just without push notifications.
    Delivery is logged in `web/qrt/storage/logs/laravel.log` ("SOS #…", "Push … to N phone(s)", "FCM accepted…").
-8. Calls: put `livekit-server.exe` (Windows zip from github.com/livekit/livekit/releases) in
+8. Calls now use **LiveKit Cloud** (`LIVEKIT_URL`/`LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` in `web/qrt/.env`),
+   which works on any network. Local alternative (same Wi-Fi only; some school/office networks block it):
+   put `livekit-server.exe` (Windows zip from github.com/livekit/livekit/releases) in
    `tools/livekit/`; `start-server.bat` then also starts it (dev mode: key `devkey`, secret `secret`).
    Firewall: TCP 7880, 7881 and UDP 7882. For LiveKit Cloud / a hosted server set `LIVEKIT_URL`,
    `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` in `web/qrt/.env`, then `php artisan config:clear`.
