@@ -27,7 +27,8 @@ One-time setup:
 Every time (Windows, double-click in the project folder):
 4. **`start-server.bat`** – opens the Laravel API and Reverb in two windows and shows the URLs.
 5. **`run-app.bat`** – runs the app using this PC's current IP (no editing `api_service.dart`).
-   Pick a device from the list, or pass one: `run-app.bat chrome`, `run-app.bat 22101316G`.
+   Pick a device from the list, or pass one: `run-app.bat chrome`, `run-app.bat 22101316G`,
+   or `run-app.bat emulator` (starts the Android emulator first if it isn't running).
    Resident on the phone (Xiaomi needs "Install via USB" on); personnel in Chrome
    (fake GPS via DevTools → Sensors) or an Android emulator.
 6. Personnel can only TIME IN with a schedule for today and within 200 m of the station.
