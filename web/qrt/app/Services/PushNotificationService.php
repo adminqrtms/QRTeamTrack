@@ -72,6 +72,8 @@ class PushNotificationService
 
         $tokens = DeviceToken::whereIn('user_id', collect($userIds)->all())->pluck('token');
 
+        Log::info("Push \"{$title}\" to " . $tokens->count() . ' phone(s) of user ids: ' . collect($userIds)->implode(', '));
+
         foreach ($tokens as $token) {
             $this->sendToToken($token, $title, $body, $data, $channel, $fullScreen);
         }
@@ -110,6 +112,8 @@ class PushNotificationService
                 DeviceToken::where('token', $token)->delete();
             } elseif ($response->failed()) {
                 Log::warning('FCM send failed', ['status' => $response->status(), 'body' => $response->body()]);
+            } else {
+                Log::info('FCM accepted the push: ' . $response->json('name'));
             }
         } catch (\Throwable $e) {
             report($e);

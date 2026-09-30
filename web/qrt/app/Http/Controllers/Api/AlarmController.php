@@ -8,6 +8,7 @@ use App\Models\Attendance;
 use Illuminate\Http\Request;
 use App\Models\Location;
 use App\Services\PushNotificationService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class AlarmController extends Controller
@@ -133,6 +134,10 @@ class AlarmController extends Controller
         $onDutyPersonnelIds = Attendance::where('location_id', $targetLocationId)
             ->whereNull('time_out')
             ->pluck('user_id');
+
+        // Shows up in storage/logs/laravel.log, to check who an SOS reached
+        Log::info("SOS #{$alarm->id} from {$user->name} at location {$targetLocationId}: "
+            . $onDutyPersonnelIds->count() . ' personnel on duty (user ids: ' . $onDutyPersonnelIds->implode(', ') . ')');
 
         app(PushNotificationService::class)->sendToUsersAfterResponse(
             $onDutyPersonnelIds,
