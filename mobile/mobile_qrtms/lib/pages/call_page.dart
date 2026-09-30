@@ -135,8 +135,13 @@ class _CallPageState extends State<CallPage> {
       _refresh();
     } catch (e) {
       debugPrint('CALL CONNECT ERROR: $e');
+      // Show the real reason and the server address, to make setup problems easy to spot
+      var reason = e.toString();
+      if (reason.length > 160) reason = '${reason.substring(0, 160)}…';
       _hangUp(
-          message: "Couldn't connect the call. Is the call server running?");
+        message:
+            "Couldn't connect the call to ${widget.livekit['url']}.\n$reason",
+      );
     }
   }
 
@@ -186,7 +191,12 @@ class _CallPageState extends State<CallPage> {
     final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context);
     if (message != null) {
-      messenger.showSnackBar(SnackBar(content: Text(message)));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: Duration(seconds: message.length > 40 ? 10 : 4),
+        ),
+      );
     }
   }
 

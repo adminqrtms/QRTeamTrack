@@ -14,4 +14,8 @@ if ($ip) {
 }
 
 Write-Host "Starting LiveKit on port 7880 (API key: devkey, secret: secret)"
+if ($ip) {
+    Write-Host "Phones reach calls at $ip (must match the IP run-app.bat used)." -ForegroundColor Green
+    Write-Host "If you change Wi-Fi, close this window and run start-server.bat again."
+}
 & $exe @flags
