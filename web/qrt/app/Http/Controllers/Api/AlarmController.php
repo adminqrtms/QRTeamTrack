@@ -160,12 +160,17 @@ class AlarmController extends Controller
     }
 
     // View specific alarm details
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $alarm = Alarm::with(['user', 'responder', 'location'])->find($id);
 
         if (!$alarm) {
             return response()->json(['message' => 'Alarm not found'], 404);
+        }
+
+        // Residents may only open their own SOS alarms
+        if ($request->user()->role === 'resident' && (int) $alarm->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'You can only view your own alarms.'], 403);
         }
 
         return response()->json(['data' => $alarm]);
@@ -185,6 +190,14 @@ class AlarmController extends Controller
             'action_taken' => 'nullable|string',
         ]);
 
+        // Residents may only cancel (mark as false alarm) their own SOS
+        $user = $request->user();
+        if (!in_array($user->role, ['personnel', 'admin'])) {
+            if ((int) $alarm->user_id !== (int) $user->id || $request->status !== 'false_alarm') {
+                return response()->json(['message' => 'You can only cancel your own SOS.'], 403);
+            }
+        }
+
         $alarm->status = $request->status;
         $responderJustAssigned = false;
 
@@ -201,7 +214,7 @@ class AlarmController extends Controller
         $alarm->save();
 
         // Let the resident know help is on the way
-        if ($responderJustAssigned && (int) $alarm->user_id !== $request->user()->id) {
+        if ($responderJustAssigned && (int) $alarm->user_id !== (int) $request->user()->id) {
             app(PushNotificationService::class)->sendToUsersAfterResponse(
                 [$alarm->user_id],
                 'Help is on the way!',

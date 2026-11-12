@@ -95,12 +95,17 @@ class ReportController extends Controller
         }
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $report = Report::with(['resident', 'personnel', 'respondent'])->find($id);
 
         if (!$report) {
             return response()->json(['message' => 'Report not found'], 404);
+        }
+
+        // Residents may only open their own reports
+        if ($request->user()->role === 'resident' && (int) $report->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'You can only view your own reports.'], 403);
         }
 
         return response()->json(['data' => $report]);
@@ -114,7 +119,18 @@ class ReportController extends Controller
             return response()->json(['message' => 'Report not found'], 404);
         }
 
-        $data = $request->all();
+        // Only responders (personnel) and admins change a report's status
+        if (!in_array($request->user()->role, ['personnel', 'admin'])) {
+            return response()->json(['message' => 'Only responders can update reports.'], 403);
+        }
+
+        $request->validate([
+            'status' => 'sometimes|required|in:pending,ongoing,in_progress,resolved,closed,false_alarm',
+            'action_taken' => 'nullable|string',
+        ]);
+
+        // Only these fields may change here (never the owner, location, etc.)
+        $data = $request->only(['status', 'action_taken']);
 
         // Capture respondent details when action is first taken (moving from pending)
         if (in_array($request->status, ['ongoing', 'resolved']) && !$report->respondent_at) {
@@ -131,10 +147,16 @@ class ReportController extends Controller
         return response()->json(['message' => 'Report updated successfully', 'data' => $report]);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $report = Report::find($id);
         if (!$report) return response()->json(['message' => 'Report not found'], 404);
+
+        // Only the resident who sent it, or an admin, may delete a report
+        $user = $request->user();
+        if ($user->role !== 'admin' && (int) $report->user_id !== (int) $user->id) {
+            return response()->json(['message' => 'You can only delete your own reports.'], 403);
+        }
 
         $report->delete();
         return response()->json(['message' => 'Report deleted successfully']);

@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/update-profile', [UserController::class, 'updateProfile']);
     Route::apiResource('reports', ReportController::class);
     Route::apiResource('alarms', AlarmController::class);
+    // Stations with on-duty personnel (resident SOS when no responder is nearby)
+    Route::get('/stations/available', [AlarmController::class, 'availableStations']);
     // This route is now protected and will correctly identify the logged-in personnel
     Route::post('/personnel/update-location', [PersonnelController::class, 'updateLocation']);
     Route::get('/personnel/monthly-summary', [PersonnelAttendanceController::class, 'monthlySummary']);

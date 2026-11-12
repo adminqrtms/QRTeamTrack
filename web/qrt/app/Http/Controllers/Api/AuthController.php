@@ -74,6 +74,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        if (!$user->is_active) {
+            return response()->json(['message' => 'This account has been deactivated. Please contact the barangay admin.'], 403);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

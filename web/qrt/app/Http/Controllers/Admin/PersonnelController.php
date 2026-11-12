@@ -143,6 +143,11 @@ class PersonnelController extends Controller
         $personnel->is_active = !$personnel->is_active;
         $personnel->save();
 
+        // A deactivated account is signed out of the mobile app right away
+        if (!$personnel->is_active) {
+            $personnel->tokens()->delete();
+        }
+
         $status = $personnel->is_active ? 'activated' : 'deactivated';
         return back()->with('success', "Personnel account has been {$status}.");
     }
