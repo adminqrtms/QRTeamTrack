@@ -145,6 +145,47 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
     }
   }
 
+  /// Personnel must time out before logging out, so no duty session is left open.
+  Future<void> _handleLogout() async {
+    // Ask the server (the duty status may have changed elsewhere); if it
+    // can't be reached, go by what this screen shows.
+    final res = await ApiService.getAttendanceStatus();
+    if (!mounted) return;
+    final onDuty = res.containsKey('is_on_duty')
+        ? res['is_on_duty'] == true
+        : isOnDuty;
+
+    if (res.containsKey('is_on_duty') && onDuty != isOnDuty) {
+      setState(() => isOnDuty = onDuty);
+    }
+
+    if (onDuty) {
+      Navigator.pop(context); // close the drawer
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          icon: const Icon(Icons.timer_off, color: Colors.orange, size: 40),
+          title: const Text("Time out first"),
+          content: Text(
+            "You are still on duty${currentStation != null ? ' at $currentStation' : ''}. "
+            "Please tap TIME OUT before logging out.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    await ApiService.logout();
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/');
+  }
+
   Future<void> _refreshUnreadMessages() async {
     final count = await ChatService.getUnreadCount();
     if (mounted) setState(() => _unreadMessages = count);
@@ -615,10 +656,7 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
             ListTile(
               leading: Icon(Icons.logout),
               title: Text('Logout'),
-              onTap: () async {
-                await ApiService.logout();
-                Navigator.pushReplacementNamed(context, '/');
-              },
+              onTap: _handleLogout,
             ),
           ],
         ),
