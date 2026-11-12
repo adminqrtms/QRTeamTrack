@@ -72,6 +72,16 @@ if ($Device -eq 'emulator') {
     Write-Host ''
 }
 
+# Install any packages added since the last run (e.g. after git pull or switching branch).
+# Otherwise the build fails with "Couldn't resolve the package ...".
+Write-Host '  Checking app packages (flutter pub get)...'
+& flutter pub get
+if ($LASTEXITCODE -ne 0) {
+    Write-Host '  flutter pub get failed - check your internet connection and try again.' -ForegroundColor Red
+    exit 1
+}
+git checkout -- analysis_options.yaml 2>$null
+
 $flutterArgs = @('run', "--dart-define=API_URL=$apiUrl")
 if ($Device) {
     $flutterArgs += @('-d', $Device)
