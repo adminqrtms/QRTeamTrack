@@ -100,6 +100,25 @@
                                 <span class="fw-bold text-primary">₱{{ number_format($p->hourly_rate, 2) }}</span><small class="text-muted">/hr</small>
                             </td>
                             <td class="py-3 text-center">
+                                @php $duty = $onDuty->get($p->id); @endphp
+                                @if($duty)
+                                    <div class="mb-2">
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2">
+                                            <i class="fas fa-circle me-1" style="font-size: .5rem; vertical-align: middle;"></i>On duty
+                                        </span>
+                                        <div class="text-muted" style="font-size: .7rem;">
+                                            {{ $duty->location->location_name ?? 'Unknown station' }}
+                                            &middot; since {{ \Carbon\Carbon::parse($duty->date->toDateString() . ' ' . \Carbon\Carbon::parse($duty->getRawOriginal('time_in'))->format('H:i:s'))->format('M j, g:i A') }}
+                                        </div>
+                                        <form action="{{ route('admin.personnels.forceTimeOut', $p->id) }}" method="POST" class="d-inline"
+                                              onsubmit="return confirm('Force time out {{ addslashes($p->name) }}? Their duty session will end now.');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3 mt-1" style="--bs-btn-padding-y: .15rem; --bs-btn-font-size: .7rem;">
+                                                <i class="fas fa-sign-out-alt me-1"></i> Force Time Out
+                                            </button>
+                                        </form>
+                                    </div>
+                                @endif
                                 <form action="{{ route('admin.personnels.toggleStatus', $p->id) }}" method="POST" class="d-inline">
                                     @csrf
                                     <button type="submit" class="btn btn-sm rounded-pill px-3 fw-bold {{ $p->is_active ? 'btn-success' : 'btn-danger' }}" style="--bs-btn-padding-y: .25rem; --bs-btn-font-size: .75rem;">

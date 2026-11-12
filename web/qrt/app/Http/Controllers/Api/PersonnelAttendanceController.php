@@ -49,21 +49,7 @@ class PersonnelAttendanceController extends Controller
                 }
             }
 
-            $attendance->time_out = $now;
-            
-            // Use getRawOriginal to get the exact time string from DB (e.g., "11:14:00")
-            // This prevents the 8-hour timezone shift caused by automatic model casting.
-            // Normalize to H:i:s: SQLite stores a full datetime here, MySQL's TIME column only the time.
-            $timeInString = Carbon::parse($attendance->getRawOriginal('time_in'))->format('H:i:s');
-            $dateString = $attendance->date->toDateString();
-            
-            $timeIn = Carbon::parse("$dateString $timeInString", $timezone)->startOfMinute();
-
-            // Use absolute difference to ensure no negative numbers
-            $minutes = abs($now->diffInMinutes($timeIn));
-            $attendance->hours_worked = round($minutes / 60, 2);
-            
-            $attendance->save();
+            $attendance->timeOut($now, $timezone);
 
             $this->recordAudit($request, $personnel, $attendance, AuditLog::ACTION_TIME_OUT, $now,
                 "Timed out from " . ($attendance->location->location_name ?? 'N/A') . " ({$attendance->hours_worked} hrs worked)");

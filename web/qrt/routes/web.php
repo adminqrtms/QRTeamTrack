@@ -47,6 +47,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::post('personnels/batch-store', [PersonnelController::class, 'batchStore'])->name('personnels.batchStore');
         Route::get('personnels/exportGeneratedAccounts', [PersonnelController::class, 'exportGeneratedAccounts'])->name('personnels.exportGeneratedAccounts');
         Route::get('personnels/monitor', [PersonnelController::class, 'monitor'])->name('personnels.monitor');
+        Route::post('personnels/{id}/force-time-out', [PersonnelController::class, 'forceTimeOut'])->name('personnels.forceTimeOut');
         Route::post('personnels/{id}/toggle-status', [PersonnelController::class, 'toggleStatus'])->name('personnels.toggleStatus');
         Route::get('personnels/{id}/attendance', [PersonnelController::class, 'attendance'])->name('personnels.attendance');
         Route::resource('personnels', PersonnelController::class);

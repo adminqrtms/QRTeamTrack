@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Location;
 use App\Models\Attendance;
+use App\Models\AuditLog;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -21,7 +23,15 @@ class PersonnelController extends Controller
     {
         // Fetch only users with the role 'personnel'
         $personnel = User::where('role', 'personnel')->latest()->paginate(10);
-        return view('admin.personnels.index', compact('personnel'));
+
+        // Open duty sessions, so the list can show who is on duty right now
+        $onDuty = Attendance::with('location')
+            ->whereIn('user_id', $personnel->pluck('id'))
+            ->whereNull('time_out')
+            ->get()
+            ->keyBy('user_id');
+
+        return view('admin.personnels.index', compact('personnel', 'onDuty'));
     }
 
     /**
@@ -137,6 +147,40 @@ class PersonnelController extends Controller
      * Toggle the active status of the personnel.
      * Corresponds to: Inactive/Active Personnel
      */
+    /**
+     * End a personnel's duty session from the admin panel, e.g. when they
+     * left without tapping TIME OUT in the app.
+     */
+    public function forceTimeOut(Request $request, $id)
+    {
+        $personnel = User::where('role', 'personnel')->findOrFail($id);
+
+        $attendance = Attendance::with('location')
+            ->where('user_id', $personnel->id)
+            ->whereNull('time_out')
+            ->first();
+
+        if (!$attendance) {
+            return back()->with('success', "{$personnel->name} is not on duty.");
+        }
+
+        $now = Carbon::now()->setTimezone('Asia/Manila')->startOfMinute();
+        $attendance->timeOut($now);
+
+        $station = $attendance->location->location_name ?? 'N/A';
+        AuditLog::create([
+            'user_id' => $personnel->id,
+            'attendance_id' => $attendance->id,
+            'location_id' => $attendance->location_id,
+            'action' => AuditLog::ACTION_TIME_OUT,
+            'description' => "Timed out by admin {$request->user()->name} from {$station} ({$attendance->hours_worked} hrs worked)",
+            'ip_address' => $request->ip(),
+            'logged_at' => $now,
+        ]);
+
+        return back()->with('success', "{$personnel->name} has been timed out from {$station} ({$attendance->hours_worked} hrs worked).");
+    }
+
     public function toggleStatus($id)
     {
         $personnel = User::findOrFail($id);
