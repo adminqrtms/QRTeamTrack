@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -183,7 +183,7 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  Future<void> _send({File? image}) async {
+  Future<void> _send({XFile? image}) async {
     final text = _textController.text.trim();
     if ((text.isEmpty && image == null) || _isSending) return;
 
@@ -217,7 +217,7 @@ class _ChatPageState extends State<ChatPage> {
       maxWidth: 1600,
       imageQuality: 75,
     );
-    if (picked != null) await _send(image: File(picked.path));
+    if (picked != null) await _send(image: picked);
   }
 
   void _showAttachmentOptions() {
@@ -440,19 +440,14 @@ class _MessageBubble extends StatelessWidget {
           children: [
             if (image != null)
               GestureDetector(
-                onTap: () => _showFullImage(context, image),
+                onTap: () => _showFullImage(context),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    ChatService.storageUrl(image),
+                  child: _ChatImage(
+                    conversationId: message['conversation_id'],
+                    messageId: message['id'],
                     width: 220,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const SizedBox(
-                      width: 220,
-                      height: 120,
-                      child: Icon(Icons.broken_image, size: 40),
-                    ),
                   ),
                 ),
               ),
@@ -494,7 +489,7 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 
-  void _showFullImage(BuildContext context, String image) {
+  void _showFullImage(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -506,10 +501,71 @@ class _MessageBubble extends StatelessWidget {
           ),
           body: Center(
             child: InteractiveViewer(
-              child: Image.network(ChatService.storageUrl(image)),
+              child: _ChatImage(
+                conversationId: message['conversation_id'],
+                messageId: message['id'],
+                fit: BoxFit.contain,
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A chat photo, downloaded with the login token (see ChatService).
+class _ChatImage extends StatelessWidget {
+  final dynamic conversationId;
+  final dynamic messageId;
+  final double? width;
+  final BoxFit fit;
+
+  const _ChatImage({
+    required this.conversationId,
+    required this.messageId,
+    this.width,
+    required this.fit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final conversation = int.tryParse('$conversationId');
+    final id = int.tryParse('$messageId');
+    if (conversation == null || id == null) return _placeholder(broken: true);
+
+    return FutureBuilder<Uint8List?>(
+      future: ChatService.loadMessageImage(conversation, id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return _placeholder(broken: false);
+        }
+        final bytes = snapshot.data;
+        if (bytes == null) return _placeholder(broken: true);
+        return Image.memory(
+          bytes,
+          width: width,
+          fit: fit,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) =>
+              _placeholder(broken: true),
+        );
+      },
+    );
+  }
+
+  Widget _placeholder({required bool broken}) {
+    return SizedBox(
+      width: width ?? 220,
+      height: 120,
+      child: Center(
+        child: broken
+            ? const Icon(Icons.broken_image, size: 40, color: Colors.grey)
+            : const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
       ),
     );
   }

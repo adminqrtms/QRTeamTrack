@@ -226,6 +226,35 @@ class MessagingTest extends TestCase
         Storage::disk('public')->assertExists($response->json('data.image'));
     }
 
+    public function test_chat_photo_is_served_to_participants_only(): void
+    {
+        Storage::fake('public');
+        Event::fake([MessageSent::class]);
+
+        $conversation = Conversation::create([
+            'resident_id' => $this->resident->id,
+            'personnel_id' => $this->personnel->id,
+        ]);
+
+        Sanctum::actingAs($this->resident);
+        $messageId = $this->post("/api/conversations/{$conversation->id}/messages", [
+            'image' => UploadedFile::fake()->image('scene.jpg'),
+        ], ['Accept' => 'application/json'])->assertCreated()->json('data.id');
+
+        $url = "/api/conversations/{$conversation->id}/messages/{$messageId}/image";
+
+        Sanctum::actingAs($this->personnel);
+        $response = $this->get($url)->assertOk();
+        $this->assertStringStartsWith('image/', $response->headers->get('Content-Type'));
+
+        // A text-only message has no photo
+        $textId = $conversation->messages()->create(['sender_id' => $this->resident->id, 'body' => 'hi'])->id;
+        $this->getJson("/api/conversations/{$conversation->id}/messages/{$textId}/image")->assertNotFound();
+
+        Sanctum::actingAs($this->makeUser(['role' => 'resident', 'is_active' => true]));
+        $this->getJson($url)->assertNotFound();
+    }
+
     public function test_message_history_paging(): void
     {
         $conversation = Conversation::create([

@@ -46,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations/{id}', [ConversationController::class, 'show'])->whereNumber('id');
     Route::get('/conversations/{id}/messages', [ConversationController::class, 'messages'])->whereNumber('id');
     Route::post('/conversations/{id}/messages', [ConversationController::class, 'sendMessage'])->whereNumber('id');
+    Route::get('/conversations/{id}/messages/{messageId}/image', [ConversationController::class, 'messageImage'])->whereNumber(['id', 'messageId']);
     Route::post('/conversations/{id}/read', [ConversationController::class, 'markRead'])->whereNumber('id');
 
     // Audio/video calls (LiveKit)

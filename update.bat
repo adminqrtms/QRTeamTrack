@@ -7,6 +7,7 @@ git pull || goto :failed
 cd /d "%~dp0web\qrt"
 call composer install --no-interaction
 php artisan migrate --force || goto :failed
+if not exist "public\storage" php artisan storage:link
 php artisan config:clear
 cd /d "%~dp0mobile\mobile_qrtms"
 call flutter pub get || goto :failed

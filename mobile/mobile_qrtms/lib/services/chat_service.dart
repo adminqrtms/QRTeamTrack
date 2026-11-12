@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'api_service.dart';
 
 /// REST calls for messaging between residents and personnel.
@@ -19,6 +20,29 @@ class ChatService {
   static String storageUrl(String path) {
     final cleanPath = path.startsWith('/') ? path.substring(1) : path;
     return "${ApiService.baseUrl.replaceAll('/api', '/storage/')}$cleanPath";
+  }
+
+  /// Chat photos are loaded through the API with the login token, so they
+  /// work without `storage:link` and in the Chrome build. Cached per session.
+  static final Map<String, Future<Uint8List?>> _imageCache = {};
+
+  static Future<Uint8List?> loadMessageImage(
+      int conversationId, int messageId) {
+    final key = '$conversationId/$messageId';
+    return _imageCache.putIfAbsent(key, () async {
+      try {
+        final response = await http
+            .get(
+              Uri.parse(
+                  '${ApiService.baseUrl}/conversations/$conversationId/messages/$messageId/image'),
+              headers: {'Authorization': 'Bearer ${ApiService.token}'},
+            )
+            .timeout(const Duration(seconds: 30));
+        if (response.statusCode == 200) return response.bodyBytes;
+      } catch (_) {}
+      _imageCache.remove(key); // let a later rebuild try again
+      return null;
+    });
   }
 
   static Future<List<dynamic>> getConversations() async {
@@ -110,7 +134,7 @@ class ChatService {
   static Future<Map<String, dynamic>> sendMessage(
     int conversationId, {
     String? body,
-    File? image,
+    XFile? image,
   }) async {
     try {
       final request = http.MultipartRequest(
@@ -121,8 +145,12 @@ class ChatService {
       request.headers.addAll(_headers);
       if (body != null && body.isNotEmpty) request.fields['body'] = body;
       if (image != null) {
-        request.files
-            .add(await http.MultipartFile.fromPath('image', image.path));
+        // Bytes (not a file path) so this also works in the Chrome build
+        request.files.add(http.MultipartFile.fromBytes(
+          'image',
+          await image.readAsBytes(),
+          filename: image.name.isNotEmpty ? image.name : 'photo.jpg',
+        ));
       }
 
       final streamed = await request.send();

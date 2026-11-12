@@ -13,6 +13,7 @@ use App\Models\Report;
 use App\Models\User;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class ConversationController extends Controller
@@ -212,6 +213,31 @@ class ConversationController extends Controller
         );
 
         return response()->json(['data' => $message], 201);
+    }
+
+    /**
+     * Send a chat photo to a participant of the conversation.
+     * Served through the API (not /storage) so it works without
+     * `php artisan storage:link` and from the Chrome build (CORS).
+     */
+    public function messageImage(Request $request, $id, $messageId)
+    {
+        $conversation = $this->findForUser($request->user(), $id);
+
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversation not found'], 404);
+        }
+
+        $message = $conversation->messages()->find($messageId);
+        $disk = Storage::disk('public');
+
+        if (!$message || !$message->image || !$disk->exists($message->image)) {
+            return response()->json(['message' => 'Image not found'], 404);
+        }
+
+        return response()->file($disk->path($message->image), [
+            'Cache-Control' => 'private, max-age=86400',
+        ]);
     }
 
     /**
