@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
 import 'services/push_service.dart';
+import 'services/update_service.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/resident_home.dart';
@@ -16,6 +17,8 @@ void main() async {
   await ApiService.loadAuth();
   await PushService.instance.init();
   runApp(MyApp());
+  // Offers new app versions published from the admin panel (Android only)
+  UpdateService.instance.start();
 }
 
 class MyApp extends StatelessWidget {
@@ -35,7 +38,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       navigatorKey: PushService.navigatorKey,
-      title: 'Barangay System',
+      title: 'QRTeam Track',
       debugShowCheckedModeBanner: false,
       initialRoute: initialRoute,
       routes: {

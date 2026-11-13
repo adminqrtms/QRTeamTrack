@@ -1,7 +1,6 @@
 # QRTeamTrack – Progress Notes
 
-**Working branch:** `claude/vigilant-noether-tn3lmd` (contains everything below; not yet merged into `main`).
-Start new work from this branch.
+**Branches:** everything below is on `main` (and `claude/vigilant-noether-tn3lmd`, kept in sync).
 
 ## Done
 
@@ -16,9 +15,16 @@ Start new work from this branch.
 | Firebase push notifications: new messages, SOS to on-duty personnel, "help is on the way" to the resident; tap opens the chat/alarm | `app/Services/PushNotificationService.php`, `lib/services/push_service.dart` |
 | SOS alert for personnel even when the app is closed: full-screen alarm when locked, large banner with **I'M COMING / VIEW DETAILS** buttons, repeating sound | `showFullScreenAlert` in `lib/services/push_service.dart` |
 | One-click launchers: `start-server.bat`, `run-app.bat` (detects the PC's IP) | project root, `scripts/` |
+| Security: admin-only web panel, report/SOS permissions, deactivated accounts can't log in | `EnsureUserIsAdmin`, `tests/Feature/AccessControlTest.php` |
+| Chat photos served through the API (work in Chrome and without `storage:link`) | `ConversationController::messageImage` |
+| Personnel must TIME OUT before logging out; admin **Force Time Out** | `personnel_home.dart`, Web admin → Personnel |
+| `reset-data.bat`: delete all personnel/resident data (keeps admins and stations) | `php artisan qrt:reset-data` |
+| Registration validation (name, email, 09 mobile number, address, password + confirm) | `lib/utils/validators.dart`, `AuthController::register` |
+| ngrok: fixed internet address so phones work on any Wi-Fi / mobile data | `setup-ngrok.bat`, `php artisan qrt:gateway` |
+| **In-app updates**: "Update available" with what's new, **Update now** downloads and installs; optional "required" updates | `build-apk.bat`, Web admin → **App Updates**, `lib/services/update_service.dart` |
 | Audio & video calls (LiveKit): call buttons in the chat, ringing screen + ringtone notification with Accept/Decline (also when the app is closed), mute / speaker / camera / flip, call records in the chat ("📞 Voice call · 02:05", "Missed video call") | `CallController.php`, `LiveKitService.php`, `lib/services/call_service.dart`, `lib/pages/call_page.dart`, `lib/pages/incoming_call_page.dart` |
 
-Back-end tests: `cd web/qrt && php artisan test` (35 passing).
+Back-end tests: `cd web/qrt && php artisan test` (64 passing). App tests: `flutter test test/validators_test.dart test/update_dialog_test.dart`.
 
 ## How to run locally
 
@@ -56,19 +62,20 @@ Every time (Windows, double-click in the project folder):
    - **Notifications → Emergency Alarms**: Floating notifications, Lock screen notifications, Sound.
    - Android 14+: Special app access → **Full screen notifications** → allow.
    Full-screen alarms only appear when the phone is locked; when it's in use Android shows the banner.
+10. Internet address (any Wi-Fi / mobile data): **`setup-ngrok.bat`** once (authtoken + free domain,
+    `ngrok.exe` in `tools/ngrok/`); `start-server.bat` then also starts the gateway and ngrok.
+11. Shareable app + in-app updates: **`build-apk.bat`** builds `QRTeamTrack.apk` (version 1.0.N).
+    Answer `y` to publish it as an update and type what's new; phones show "Update available" when
+    they open the app. Manage versions in Web admin → **App Updates**.
+    Updates must be signed with the same key: always build on the same PC (Flutter uses
+    `C:\Users\<you>\.android\debug.keystore`; back it up).
 
 ## Next (planned)
 
-1. **In-app updates (self-hosted, no Play Store)** – web admin "App Updates" page to upload a release
-   APK with version + change list (optionally "required"); the app checks on start and shows
-   "Update available" with the changes and **Update now** (download with progress, then Android's
-   installer). Needs: a release signing key (one-time uninstall of the debug build), version bumps in
-   `pubspec.yaml`, `REQUEST_INSTALL_PACKAGES`, and a `build-release.bat`.
-2. **Smaller items** – Terms and Conditions in the resident menu; photo sending from the Chrome build.
+1. **Smaller items** – Terms and Conditions in the resident menu.
 
 ## Known notes
 
-- Photo uploads don't work in the Chrome (web) build.
 - iOS needs camera/photo-library permission texts in `Info.plist` before photos can be used on iPhone.
 - For real deployment, the Laravel, Reverb and LiveKit servers must be hosted online.
 - Calls keep working only while the app is on screen; leaving the app mid-call can cut the microphone

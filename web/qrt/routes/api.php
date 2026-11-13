@@ -12,10 +12,15 @@ use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\CallController;
+use App\Http\Controllers\Api\AppUpdateController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/locations', [LocationController::class, 'index']);
+
+// In-app updates (public, so the login screen can update too)
+Route::get('/app/latest', [AppUpdateController::class, 'latest']);
+Route::get('/app/releases/{id}/download', [AppUpdateController::class, 'download'])->whereNumber('id');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [UserController::class, 'me']);

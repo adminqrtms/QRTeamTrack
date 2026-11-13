@@ -28,6 +28,9 @@
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('admin.audit-logs.*') ? 'active' : '' }}" href="{{ route('admin.audit-logs.index') }}">Audit Logs</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('admin.app-releases.*') ? 'active' : '' }}" href="{{ route('admin.app-releases.index') }}">App Updates</a>
+                    </li>
                 @endauth
             </ul>
 

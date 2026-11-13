@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\ResidentController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\AppReleaseController;
 use App\Models\Personnel;
 use App\Models\Location;
 use App\Models\Schedule;
@@ -73,6 +74,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
         // Audit Logs
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+
+        // App Updates (versions phones can update to)
+        Route::get('app-updates', [AppReleaseController::class, 'index'])->name('app-releases.index');
+        Route::put('app-updates/{release}', [AppReleaseController::class, 'update'])->name('app-releases.update');
+        Route::delete('app-updates/{release}', [AppReleaseController::class, 'destroy'])->name('app-releases.destroy');
     });
 
     // Personnel Routes
