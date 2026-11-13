@@ -14,6 +14,31 @@
         </div>
     @endif
 
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-body d-flex flex-column flex-md-row align-items-center gap-4">
+            <div class="p-2 bg-white rounded-3 border flex-shrink-0" style="width: 216px;">{!! $downloadQr !!}</div>
+            <div class="flex-grow-1 w-100">
+                <h6 class="fw-bold mb-1">Download link for new users</h6>
+                <p class="small text-secondary mb-2">
+                    Anyone can scan this QR code or open the link on an Android phone to install the newest version.
+                    Show it on screen during a demo, or send the link in a group chat.
+                </p>
+                <div class="input-group input-group-sm mb-2">
+                    <input type="text" class="form-control" id="download-link" value="{{ $downloadUrl }}" readonly>
+                    <button class="btn btn-outline-secondary" type="button" id="copy-download-link">Copy</button>
+                    <a class="btn btn-outline-primary" href="{{ $downloadUrl }}" target="_blank" rel="noopener">Open page</a>
+                </div>
+                @if($localOnly)
+                    <div class="small text-danger">
+                        This link only works on this PC. Run <code>setup-ngrok.bat</code> so phones can open it from anywhere.
+                    </div>
+                @elseif($releases->isEmpty())
+                    <div class="small text-warning-emphasis">Publish a version first (see below), or the page has nothing to download.</div>
+                @endif
+            </div>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm rounded-3 mb-4 border-start border-4 border-info">
         <div class="card-body">
             <h6 class="fw-bold mb-2"><i class="fas fa-upload me-1 text-info"></i> How to publish a new version</h6>
@@ -85,4 +110,15 @@
         </div>
     @endforelse
 </div>
+@push('scripts')
+<script>
+document.getElementById('copy-download-link')?.addEventListener('click', function () {
+    const input = document.getElementById('download-link');
+    navigator.clipboard.writeText(input.value).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => (this.textContent = 'Copy'), 1500);
+    }).catch(() => { input.select(); });
+});
+</script>
+@endpush
 @endsection

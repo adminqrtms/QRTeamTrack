@@ -110,6 +110,39 @@ class AppUpdateTest extends TestCase
         Storage::disk('local')->assertMissing($release->apk_path);
     }
 
+    public function test_public_download_page_with_qr_code(): void
+    {
+        config(['services.app_download.public_url' => 'https://qrt-demo.ngrok-free.app']);
+
+        // Before anything is published
+        $this->get('/download')->assertOk()->assertSee("isn't available for download yet", false);
+
+        $this->publish(2, '1.0.2');
+        $release = AppRelease::sole();
+
+        $this->get('/download')
+            ->assertOk()
+            ->assertSee('Version')
+            ->assertSee('1.0.2')
+            ->assertSee("/api/app/releases/{$release->id}/download", false)
+            ->assertSee('https://qrt-demo.ngrok-free.app/download')
+            ->assertSee('<svg', false);
+
+        $this->get('/download/latest.apk')->assertRedirect("/api/app/releases/{$release->id}/download");
+    }
+
+    public function test_admin_page_shows_the_download_link_and_qr(): void
+    {
+        config(['services.app_download.public_url' => 'https://qrt-demo.ngrok-free.app']);
+        $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'password']);
+
+        $this->actingAs($admin)->get('/admin/app-updates')
+            ->assertOk()
+            ->assertSee('https://qrt-demo.ngrok-free.app/download')
+            ->assertSee('<svg', false)
+            ->assertDontSee('only works on this PC');
+    }
+
     public function test_residents_cannot_open_the_admin_page(): void
     {
         User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'password']);

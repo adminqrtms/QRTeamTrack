@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\ResidentController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\AppReleaseController;
+use App\Http\Controllers\AppDownloadController;
 use App\Models\Personnel;
 use App\Models\Location;
 use App\Models\Schedule;
@@ -22,6 +23,10 @@ Route::get('/', function () {
 });
 
 Auth::routes();
+
+// Public: install the mobile app (link and QR code on Web admin -> App Updates)
+Route::get('/download', [AppDownloadController::class, 'show'])->name('app.download');
+Route::get('/download/latest.apk', [AppDownloadController::class, 'latestApk'])->name('app.download.latest');
 
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/dashboard', function () {

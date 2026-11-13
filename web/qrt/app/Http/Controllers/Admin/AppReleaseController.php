@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppRelease;
+use App\Support\AppDownload;
 use Illuminate\Http\Request;
 
 /**
@@ -15,8 +16,14 @@ class AppReleaseController extends Controller
     public function index()
     {
         $releases = AppRelease::orderByDesc('version_code')->get();
+        $downloadUrl = AppDownload::pageUrl();
 
-        return view('admin.app_releases.index', compact('releases'));
+        return view('admin.app_releases.index', [
+            'releases' => $releases,
+            'downloadUrl' => $downloadUrl,
+            'downloadQr' => AppDownload::qrSvg($downloadUrl, 200),
+            'localOnly' => AppDownload::isLocalOnly(),
+        ]);
     }
 
     public function update(Request $request, AppRelease $release)

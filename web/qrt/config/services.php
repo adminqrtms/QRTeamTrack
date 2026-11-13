@@ -35,6 +35,11 @@ return [
     ],
 
     // LiveKit (audio/video calls). The defaults match `livekit-server --dev`.
+    // Public address for the app download page and QR code (default: the ngrok domain)
+    'app_download' => [
+        'public_url' => env('APP_PUBLIC_URL'),
+    ],
+
     'livekit' => [
         'url' => env('LIVEKIT_URL'),
         'key' => env('LIVEKIT_API_KEY', 'devkey'),
