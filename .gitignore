@@ -3,3 +3,6 @@
 
 # ngrok program and saved domain (set up with setup-ngrok.bat)
 /tools/ngrok/
+
+# App file built by build-apk.bat
+/QRTeamTrack.apk
