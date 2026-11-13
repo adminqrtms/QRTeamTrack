@@ -5,23 +5,40 @@
 #   run-app.bat 22101316G   run on a specific phone
 #   run-app.bat emulator    start the Android emulator (if needed) and run on it
 #   run-app.bat 22101316G 192.168.1.15   use this IP instead of detecting it
+#   run-app.bat 22101316G local          use this PC's Wi-Fi IP even if ngrok is set up
 param([string]$Device = '', [string]$ServerIp = '')
 
-$ip = $ServerIp
-if (-not $ip) {
-    $ip = & (Join-Path $PSScriptRoot 'lan-ip.ps1')
-}
-if (-not $ip) {
-    Write-Host 'Could not detect this PC''s IP address.' -ForegroundColor Yellow
-    $ip = Read-Host 'Type the Wi-Fi IPv4 Address from ipconfig'
-}
+# With ngrok set up (setup-ngrok.bat) the app uses the fixed internet address and
+# works on any Wi-Fi or mobile data. Chrome on this PC, an IP given on the command
+# line, or 'local' (run-app.bat <device> local) use this PC's Wi-Fi IP instead.
+$ngrokDomain = & (Join-Path $PSScriptRoot 'ngrok-domain.ps1')
+$useNgrok = $ngrokDomain -and -not $ServerIp -and $Device -ne 'chrome'
+if ($ServerIp -eq 'local') { $ServerIp = '' }
 
-$apiUrl = "http://${ip}:8000/api"
-Write-Host ''
-Write-Host "  The app will use the server at $apiUrl" -ForegroundColor Green
-Write-Host "  (Check it matches the Wi-Fi IPv4 Address in ipconfig. If not, run:"
-Write-Host "   run-app.bat <device> <your-ip>)"
-Write-Host ''
+if ($useNgrok) {
+    $apiUrl = "https://$ngrokDomain/api"
+    Write-Host ''
+    Write-Host "  The app will use the server at $apiUrl" -ForegroundColor Green
+    Write-Host '  (ngrok internet address: works on any Wi-Fi or mobile data while'
+    Write-Host '   start-server.bat is running on this PC)'
+    Write-Host ''
+} else {
+    $ip = $ServerIp
+    if (-not $ip) {
+        $ip = & (Join-Path $PSScriptRoot 'lan-ip.ps1')
+    }
+    if (-not $ip) {
+        Write-Host 'Could not detect this PC''s IP address.' -ForegroundColor Yellow
+        $ip = Read-Host 'Type the Wi-Fi IPv4 Address from ipconfig'
+    }
+
+    $apiUrl = "http://${ip}:8000/api"
+    Write-Host ''
+    Write-Host "  The app will use the server at $apiUrl" -ForegroundColor Green
+    Write-Host "  (Check it matches the Wi-Fi IPv4 Address in ipconfig. If not, run:"
+    Write-Host "   run-app.bat <device> <your-ip>)"
+    Write-Host ''
+}
 
 Set-Location (Join-Path $PSScriptRoot '..\mobile\mobile_qrtms')
 

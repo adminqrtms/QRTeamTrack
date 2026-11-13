@@ -1,2 +1,5 @@
 # LiveKit server binary (download separately)
 /tools/livekit/
+
+# ngrok program and saved domain (set up with setup-ngrok.bat)
+/tools/ngrok/

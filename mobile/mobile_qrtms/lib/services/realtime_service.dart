@@ -53,11 +53,14 @@ class RealtimeService {
 
   PusherChannelsOptions get _options {
     final api = Uri.parse(ApiService.baseUrl);
+    // Over HTTPS (the ngrok address) the WebSocket goes through the same
+    // address and port; the PC's gateway passes it on to Reverb.
+    final secure = api.scheme == 'https';
     return PusherChannelsOptions.fromHost(
-      scheme: api.scheme == 'https' ? 'wss' : 'ws',
+      scheme: secure ? 'wss' : 'ws',
       host: api.host,
       key: reverbKey,
-      port: reverbPort,
+      port: secure ? api.port : reverbPort,
       shouldSupplyMetadataQueries: true,
       metadata: PusherChannelsOptionsMetadata.byDefault(),
     );
