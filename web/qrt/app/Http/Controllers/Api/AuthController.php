@@ -12,14 +12,31 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        // Same rules as the app's registration form (lib/utils/validators.dart)
+        $request->merge([
+            'name' => trim((string) $request->name),
+            'email' => strtolower(trim((string) $request->email)),
+            'phone_number' => trim((string) $request->phone_number),
+            'address' => trim((string) $request->address),
+        ]);
+
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
+            'name' => ['required', 'string', 'min:2', 'max:255', "regex:/^[\pL .'-]+$/u"],
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'phone_number' => 'required|string|max:20',
-            'address' => 'nullable|string|max:255',
+            'password' => ['required', 'string', 'min:8', 'regex:/[A-Za-z]/', 'regex:/[0-9]/'],
+            'phone_number' => ['required', 'regex:/^09\d{9}$/'],
+            'address' => 'required|string|min:5|max:255',
             'location_id' => 'required|exists:locations,id',
             'avatar' => 'nullable|image|max:2048',
+        ], [
+            'name.regex' => 'Use letters only, e.g. Juan Dela Cruz.',
+            'email.unique' => 'This email is already registered. Try logging in instead.',
+            'password.regex' => 'Use both letters and numbers in your password.',
+            'phone_number.regex' => 'Enter an 11-digit mobile number starting with 09.',
+            'address.required' => 'Please enter your home address.',
+            'address.min' => 'Please enter your complete address.',
+            'location_id.required' => 'Please select your station.',
+            'location_id.exists' => 'Please select your station.',
         ]);
 
         if ($validator->fails()) {
