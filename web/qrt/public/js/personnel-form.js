@@ -51,6 +51,23 @@
         });
     }
 
+    // ---- Hourly rate: whole pesos only, within the allowed range ----
+    const rate = document.getElementById('hourly_rate');
+    if (rate) {
+        const min = Number(rate.dataset.min), max = Number(rate.dataset.max);
+        const check = () => {
+            // Keep the whole-peso part; 2 digits, or 3 only for 100
+            let digits = rate.value.split(/[.,]/)[0].replace(/\D/g, '');
+            digits = digits.slice(0, digits.startsWith('1') ? 3 : 2);
+            if (digits !== rate.value) rate.value = digits;
+            const n = Number(digits);
+            rate.setCustomValidity(digits && (n < min || n > max)
+                ? `Enter a rate from ${min} to ${max} pesos per hour.` : '');
+        };
+        rate.addEventListener('input', check);
+        check();
+    }
+
     // ---- Password: live checklist and match ----
     const password = document.getElementById('password');
     const confirm = document.getElementById('password_confirmation');

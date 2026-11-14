@@ -31,7 +31,7 @@ class PersonnelFormTest extends TestCase
             'province' => 'Maguindanao del Norte',
             'city' => 'Cotabato City',
             'barangay' => 'Rosary Heights',
-            'hourly_rate' => '57.63',
+            'hourly_rate' => '58',
             'password' => 'Secret#123',
             'password_confirmation' => 'Secret#123',
         ], $overrides);
@@ -51,12 +51,24 @@ class PersonnelFormTest extends TestCase
         $this->assertSame('Rosary Heights', $p->barangay);
     }
 
-    public function test_middle_name_is_optional(): void
+    public function test_middle_name_and_street_are_optional(): void
     {
-        $this->actingAs($this->admin)->post('/admin/personnels', $this->valid(['middle_name' => '']))
+        $this->actingAs($this->admin)->post('/admin/personnels', $this->valid(['middle_name' => '', 'street' => '']))
             ->assertSessionHasNoErrors();
 
-        $this->assertSame('Juan Dela Cruz', User::where('email', 'juan@example.com')->value('name'));
+        $p = User::where('email', 'juan@example.com')->sole();
+        $this->assertSame('Juan Dela Cruz', $p->name);
+        $this->assertSame('Brgy. Rosary Heights, Cotabato City, Maguindanao del Norte', $p->address);
+    }
+
+    public function test_hourly_rate_limits_are_accepted(): void
+    {
+        foreach (['50', '100'] as $i => $rate) {
+            $this->actingAs($this->admin)
+                ->post('/admin/personnels', $this->valid(['hourly_rate' => $rate, 'email' => "rate{$i}@example.com"]))
+                ->assertSessionHasNoErrors();
+        }
+        $this->assertEquals([50, 100], User::where('role', 'personnel')->orderBy('hourly_rate')->pluck('hourly_rate')->map(fn ($r) => (int) $r)->all());
     }
 
     public function test_invalid_values_are_rejected(): void
@@ -69,9 +81,10 @@ class PersonnelFormTest extends TestCase
             ['phone_number', '19171234567', 'exactly 11 digits'],     // not 09
             ['barangay', 'Not A Barangay', 'from the lists'],
             ['city', 'Davao City', 'from the lists'],                 // city not in that province
-            ['hourly_rate', '100.01', 'not be more than ₱100'],
+            ['hourly_rate', '101', 'from ₱50 to ₱100'],
+            ['hourly_rate', '49', 'from ₱50 to ₱100'],
+            ['hourly_rate', '57.50', 'whole number'],
             ['hourly_rate', '', 'hourly rate field is required'],
-            ['street', '', 'street field is required'],
         ];
 
         foreach ($cases as [$field, $value, $message]) {

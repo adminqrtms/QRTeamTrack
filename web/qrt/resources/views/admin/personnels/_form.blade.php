@@ -77,10 +77,10 @@
         @error('barangay') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
     <div class="col-12">
-        <label for="street" class="form-label fw-bold small required">House No. / Street / Purok</label>
+        <label for="street" class="form-label fw-bold small">House No. / Street / Purok <span class="fw-normal text-muted">(optional)</span></label>
         <input type="text" name="street" id="street" value="{{ old('street', $p?->street) }}"
                class="form-control @error('street') is-invalid @enderror" maxlength="255"
-               placeholder="e.g. 123 Sinsuat Avenue, Purok 2" required>
+               placeholder="e.g. 123 Sinsuat Avenue, Purok 2">
         @if($isEdit && !$p->street && $p->address)
             <div class="form-text small">Previously saved address: {{ $p->address }}</div>
         @endif
@@ -94,14 +94,17 @@
         <label for="hourly_rate" class="form-label fw-bold small required">Hourly Rate (₱)</label>
         <div class="input-group has-validation">
             <span class="input-group-text">₱</span>
-            <input type="number" step="0.01" min="0" max="{{ \App\Http\Controllers\Admin\PersonnelController::MAX_HOURLY_RATE }}"
-                   name="hourly_rate" id="hourly_rate" value="{{ old('hourly_rate', $p?->hourly_rate) }}"
-                   class="form-control @error('hourly_rate') is-invalid @enderror" placeholder="0.00" required>
+            <input type="text" inputmode="numeric" pattern="[0-9]{2,3}"
+                   data-min="{{ \App\Http\Controllers\Admin\PersonnelController::MIN_HOURLY_RATE }}"
+                   data-max="{{ \App\Http\Controllers\Admin\PersonnelController::MAX_HOURLY_RATE }}"
+                   name="hourly_rate" id="hourly_rate"
+                   value="{{ old('hourly_rate', $p?->hourly_rate !== null ? (int) $p->hourly_rate : '') }}"
+                   class="form-control @error('hourly_rate') is-invalid @enderror" placeholder="50 to 100" required>
             <span class="input-group-text">/ hour</span>
             @error('hourly_rate') <div class="invalid-feedback">{{ $message }}</div> @enderror
         </div>
         <div class="form-text small">
-            Maximum ₱{{ \App\Http\Controllers\Admin\PersonnelController::MAX_HOURLY_RATE }}/hour.
+            Whole pesos from ₱{{ \App\Http\Controllers\Admin\PersonnelController::MIN_HOURLY_RATE }} to ₱{{ \App\Http\Controllers\Admin\PersonnelController::MAX_HOURLY_RATE }} per hour.
             Cotabato City minimum wage is ₱436/day (₱461 from Dec 1, 2026), about ₱55–58/hour for 8 hours.
         </div>
     </div>
