@@ -25,6 +25,13 @@
 
         /* Required form fields: red asterisk after the label */
         .form-label.required::after { content: " *"; color: #dc3545; font-weight: 700; }
+        /* Show/hide password button inside password fields */
+        .password-toggle-wrap { position: relative; }
+        .password-toggle-wrap > input { padding-right: 2.75rem; }
+        .password-toggle-wrap > input.is-invalid { background-position: right 2.6rem center; }
+        .password-toggle { position: absolute; top: 50%; right: .5rem; transform: translateY(-50%);
+                           border: 0; background: transparent; color: #6c757d; padding: .25rem; line-height: 0; }
+        .password-toggle:hover, .password-toggle:focus-visible { color: #0d6efd; }
         .password-rules li { list-style: none; }
         .password-rules li::before { content: "\2715"; display: inline-block; width: 1.2em; color: #dc3545; }
         .password-rules li.ok { color: #198754; }
@@ -54,6 +61,7 @@
 
     <!-- Page-specific scripts -->
     @stack('scripts')
+    <script src="{{ asset('js/password-toggle.js') }}" defer></script>
 
     @auth
         <script src="{{ asset('js/live-refresh.js') }}" defer></script>
