@@ -51,18 +51,20 @@
         });
     }
 
-    // ---- Hourly rate: whole pesos only, within the allowed range ----
+    // ---- Hourly rate: 2-digit pesos and up to 2 centavo digits (50.00 - 99.99) ----
     const rate = document.getElementById('hourly_rate');
     if (rate) {
         const min = Number(rate.dataset.min), max = Number(rate.dataset.max);
         const check = () => {
-            // Keep the whole-peso part; 2 digits, or 3 only for 100
-            let digits = rate.value.split(/[.,]/)[0].replace(/\D/g, '');
-            digits = digits.slice(0, digits.startsWith('1') ? 3 : 2);
-            if (digits !== rate.value) rate.value = digits;
-            const n = Number(digits);
-            rate.setCustomValidity(digits && (n < min || n > max)
-                ? `Enter a rate from ${min} to ${max} pesos per hour.` : '');
+            const [whole, ...rest] = rate.value.replace(',', '.').split('.');
+            const pesos = whole.replace(/\D/g, '').slice(0, 2);
+            const hasDot = rest.length > 0 && pesos.length > 0;
+            const centavos = rest.join('').replace(/\D/g, '').slice(0, 2);
+            const cleaned = pesos + (hasDot ? '.' + centavos : '');
+            if (cleaned !== rate.value) rate.value = cleaned;
+            const n = Number(cleaned);
+            rate.setCustomValidity(cleaned && (n < min || n > max)
+                ? 'Enter a rate from 50.00 to 99.99 pesos per hour.' : '');
         };
         rate.addEventListener('input', check);
         check();

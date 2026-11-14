@@ -31,7 +31,7 @@ class PersonnelFormTest extends TestCase
             'province' => 'Maguindanao del Norte',
             'city' => 'Cotabato City',
             'barangay' => 'Rosary Heights',
-            'hourly_rate' => '58',
+            'hourly_rate' => '57.63',
             'password' => 'Secret#123',
             'password_confirmation' => 'Secret#123',
         ], $overrides);
@@ -63,12 +63,12 @@ class PersonnelFormTest extends TestCase
 
     public function test_hourly_rate_limits_are_accepted(): void
     {
-        foreach (['50', '100'] as $i => $rate) {
+        foreach (['50', '99.99', '57.5'] as $i => $rate) {
             $this->actingAs($this->admin)
                 ->post('/admin/personnels', $this->valid(['hourly_rate' => $rate, 'email' => "rate{$i}@example.com"]))
                 ->assertSessionHasNoErrors();
         }
-        $this->assertEquals([50, 100], User::where('role', 'personnel')->orderBy('hourly_rate')->pluck('hourly_rate')->map(fn ($r) => (int) $r)->all());
+        $this->assertEquals([50.0, 57.5, 99.99], User::where('role', 'personnel')->orderBy('hourly_rate')->pluck('hourly_rate')->map(fn ($r) => (float) $r)->all());
     }
 
     public function test_invalid_values_are_rejected(): void
@@ -81,9 +81,10 @@ class PersonnelFormTest extends TestCase
             ['phone_number', '19171234567', 'exactly 11 digits'],     // not 09
             ['barangay', 'Not A Barangay', 'from the lists'],
             ['city', 'Davao City', 'from the lists'],                 // city not in that province
-            ['hourly_rate', '101', 'from ₱50 to ₱100'],
-            ['hourly_rate', '49', 'from ₱50 to ₱100'],
-            ['hourly_rate', '57.50', 'whole number'],
+            ['hourly_rate', '100', '₱99.99'],
+            ['hourly_rate', '100.00', '₱99.99'],
+            ['hourly_rate', '49.99', '₱99.99'],
+            ['hourly_rate', '57.555', 'at most 2 decimals'],
             ['hourly_rate', '', 'hourly rate field is required'],
         ];
 

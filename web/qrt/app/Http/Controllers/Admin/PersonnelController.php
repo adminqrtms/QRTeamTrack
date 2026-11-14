@@ -47,9 +47,9 @@ class PersonnelController extends Controller
     /**
      * Store a newly created personnel in storage.
      */
-    /** Hourly rate range (whole pesos) the admin can set for a personnel. */
+    /** Hourly rate range (PHP, with centavos) the admin can set for a personnel. */
     public const MIN_HOURLY_RATE = 50;
-    public const MAX_HOURLY_RATE = 100;
+    public const MAX_HOURLY_RATE = 99.99;
 
     /**
      * Rules shared by Add and Edit Personnel.
@@ -74,7 +74,7 @@ class PersonnelController extends Controller
                     $fail('Choose the province, city and barangay from the lists.');
                 }
             }],
-            'hourly_rate' => 'required|integer|between:' . self::MIN_HOURLY_RATE . ',' . self::MAX_HOURLY_RATE,
+            'hourly_rate' => ['required', 'regex:/^\\d{2}(\\.\\d{1,2})?$/', 'numeric', 'between:' . self::MIN_HOURLY_RATE . ',' . self::MAX_HOURLY_RATE],
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'password' => [$personnel ? 'nullable' : 'required', 'string', 'min:8',
                 'regex:/[A-Z]/', 'regex:/[^A-Za-z0-9]/', 'confirmed'],
@@ -88,8 +88,8 @@ class PersonnelController extends Controller
             'middle_name.regex' => 'The middle name may only contain letters.',
             'last_name.regex' => 'The last name may only contain letters.',
             'phone_number.regex' => 'The phone number must be exactly 11 digits starting with 09 (e.g. 09171234567).',
-            'hourly_rate.integer' => 'The hourly rate must be a whole number (no centavos).',
-            'hourly_rate.between' => 'The hourly rate must be from ₱' . self::MIN_HOURLY_RATE . ' to ₱' . self::MAX_HOURLY_RATE . ' per hour.',
+            'hourly_rate.regex' => 'The hourly rate must be from ₱50.00 to ₱99.99, with at most 2 decimals (e.g. 57.63).',
+            'hourly_rate.between' => 'The hourly rate must be from ₱50.00 to ₱99.99 per hour.',
             'password.min' => 'The password must be at least 8 characters.',
             'password.regex' => 'The password needs at least 1 capital letter and 1 symbol (e.g. ! @ # $).',
         ];
@@ -111,7 +111,7 @@ class PersonnelController extends Controller
             'city' => $request->city,
             'province' => $request->province,
             'address' => PhAddress::format($trim('street'), $request->barangay, $request->city, $request->province),
-            'hourly_rate' => (int) $request->hourly_rate,
+            'hourly_rate' => round((float) $request->hourly_rate, 2),
         ];
     }
 
