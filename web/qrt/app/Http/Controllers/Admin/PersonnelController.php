@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Location;
 use App\Models\Attendance;
 use App\Models\AuditLog;
+use App\Support\PhAddress;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -46,29 +47,80 @@ class PersonnelController extends Controller
     /**
      * Store a newly created personnel in storage.
      */
+    /** Highest hourly rate (PHP) the admin can set for a personnel. */
+    public const MAX_HOURLY_RATE = 100;
+
+    /**
+     * Rules shared by Add and Edit Personnel.
+     * The password is required when adding, optional when editing.
+     */
+    private function personnelRules(?User $personnel = null): array
+    {
+        $namePart = ['string', 'max:100', "regex:/^[\\pL .'-]+$/u"];
+
+        return [
+            'first_name' => array_merge(['required'], $namePart),
+            'middle_name' => array_merge(['nullable'], $namePart),
+            'last_name' => array_merge(['required'], $namePart),
+            'email' => ['required', 'string', 'email', 'max:255',
+                $personnel ? Rule::unique('users')->ignore($personnel->id) : Rule::unique('users')],
+            'phone_number' => ['required', 'regex:/^09\\d{9}$/'],
+            'street' => 'required|string|max:255',
+            'province' => 'required|string|max:150',
+            'city' => 'required|string|max:150',
+            'barangay' => ['required', 'string', 'max:150', function ($attribute, $value, $fail) {
+                if (!PhAddress::exists(request('province'), request('city'), $value)) {
+                    $fail('Choose the province, city and barangay from the lists.');
+                }
+            }],
+            'hourly_rate' => 'required|numeric|min:0|max:' . self::MAX_HOURLY_RATE,
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'password' => [$personnel ? 'nullable' : 'required', 'string', 'min:8',
+                'regex:/[A-Z]/', 'regex:/[^A-Za-z0-9]/', 'confirmed'],
+        ];
+    }
+
+    private function personnelMessages(): array
+    {
+        return [
+            'first_name.regex' => 'The first name may only contain letters.',
+            'middle_name.regex' => 'The middle name may only contain letters.',
+            'last_name.regex' => 'The last name may only contain letters.',
+            'phone_number.regex' => 'The phone number must be exactly 11 digits starting with 09 (e.g. 09171234567).',
+            'hourly_rate.max' => 'The hourly rate may not be more than ₱' . self::MAX_HOURLY_RATE . '.',
+            'password.min' => 'The password must be at least 8 characters.',
+            'password.regex' => 'The password needs at least 1 capital letter and 1 symbol (e.g. ! @ # $).',
+        ];
+    }
+
+    /** Fields saved from the Add/Edit Personnel form. */
+    private function personnelData(Request $request): array
+    {
+        $trim = fn ($key) => ($v = trim((string) $request->input($key))) === '' ? null : preg_replace('/\s+/', ' ', $v);
+
+        return [
+            'first_name' => $trim('first_name'),
+            'middle_name' => $trim('middle_name'),
+            'last_name' => $trim('last_name'),
+            'email' => strtolower(trim($request->email)),
+            'phone_number' => $request->phone_number,
+            'street' => $trim('street'),
+            'barangay' => $request->barangay,
+            'city' => $request->city,
+            'province' => $request->province,
+            'address' => PhAddress::format($trim('street'), $request->barangay, $request->city, $request->province),
+            'hourly_rate' => $request->hourly_rate,
+        ];
+    }
+
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
-            'phone_number' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:500',
-            'hourly_rate' => 'nullable|numeric|min:0',
-            'avatar' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'location_id' => 'nullable|exists:locations,id',
-        ]);
+        $request->validate($this->personnelRules(), $this->personnelMessages());
 
-        $data = [
-            'name' => $request->name,
-            'email' => $request->email,
+        $data = $this->personnelData($request) + [
             'password' => Hash::make($request->password),
             'role' => 'personnel', // Force role to personnel
             'is_active' => true,
-            'phone_number' => $request->phone_number,
-            'address' => $request->address,
-            'hourly_rate' => $request->hourly_rate,
-            'location_id' => $request->location_id,
         ];
 
         if ($request->hasFile('avatar')) {
@@ -97,27 +149,9 @@ class PersonnelController extends Controller
     {
         $personnel = User::findOrFail($id);
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => [
-                'required', 'string', 'email', 'max:255',
-                // Ignore the current user's email so they can update their name without changing email
-                Rule::unique('users')->ignore($personnel->id),
-            ],
-            'password' => 'nullable|string|min:6|confirmed',
-            'phone_number' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:500',
-            'hourly_rate' => 'nullable|numeric|min:0',
-            'avatar' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'location_id' => 'nullable|exists:locations,id',
-        ]);
+        $request->validate($this->personnelRules($personnel), $this->personnelMessages());
 
-        $personnel->name = $request->name;
-        $personnel->email = $request->email;
-        $personnel->phone_number = $request->phone_number;
-        $personnel->address = $request->address;
-        $personnel->hourly_rate = $request->hourly_rate;
-        $personnel->location_id = $request->location_id;
+        $personnel->fill($this->personnelData($request));
 
         if ($request->filled('password')) {
             $personnel->password = Hash::make($request->password);

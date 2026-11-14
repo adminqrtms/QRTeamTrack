@@ -23,6 +23,13 @@
     <style>
         body { font-family: 'Nunito', sans-serif; }
 
+        /* Required form fields: red asterisk after the label */
+        .form-label.required::after { content: " *"; color: #dc3545; font-weight: 700; }
+        .password-rules li { list-style: none; }
+        .password-rules li::before { content: "\2715"; display: inline-block; width: 1.2em; color: #dc3545; }
+        .password-rules li.ok { color: #198754; }
+        .password-rules li.ok::before { content: "\2713"; color: #198754; }
+
         /* Live refresh: briefly highlight rows that just appeared */
         @keyframes live-new-flash { from { background-color: #fff3cd; } to { background-color: transparent; } }
         .live-new, .live-new > td { animation: live-new-flash 3s ease-out; }
