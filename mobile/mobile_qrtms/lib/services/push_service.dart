@@ -533,6 +533,19 @@ class PushService {
       }
       return;
     }
+    // "Is it resolved?" / "Resolved" / "Not yet resolved" while the app is open.
+    // (The resident's home screen also shows the YES / NOT YET card.)
+    if (data['type'] == 'resolution') {
+      final id = int.tryParse('${data['incident_id']}') ?? 0;
+      showLocal(
+        id: (data['incident_type'] == 'alarm' ? 5000 : 4000) + id,
+        title: message.notification?.title ?? 'Incident update',
+        body: message.notification?.body ?? '',
+        channelId: 'chat_channel',
+        data: data,
+      );
+      return;
+    }
     if (data['type'] != 'chat') return;
 
     // The live connection already shows chat notifications while it's up.

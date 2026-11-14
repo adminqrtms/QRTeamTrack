@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/incident_service.dart';
+import '../widgets/incident_widgets.dart';
 import 'chat_page.dart';
 
 class AlarmDetailsPage extends StatefulWidget {
@@ -16,12 +18,15 @@ class AlarmDetailsPage extends StatefulWidget {
 class _AlarmDetailsPageState extends State<AlarmDetailsPage> {
   final TextEditingController _actionController = TextEditingController();
   bool _isUpdating = false;
+  bool _joining = false;
   late String _currentStatus;
+  List<dynamic> _responders = [];
 
   @override
   void initState() {
     super.initState();
-    _currentStatus = widget.data['status'];
+    _currentStatus = widget.data['status'] ?? 'triggered';
+    _responders = (widget.data['responders'] as List?) ?? [];
     _actionController.text = widget.data['action_taken'] ?? '';
   }
 
@@ -36,17 +41,14 @@ class _AlarmDetailsPageState extends State<AlarmDetailsPage> {
 
       if (mounted) {
         setState(() {
-          _currentStatus = newStatus;
+          _applyResult(res, newStatus);
           _isUpdating = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(res['message'] ?? "Status updated to $newStatus"),
+            content: Text(res['message'] ?? "Status updated"),
           ),
         );
-        if (newStatus == 'resolved') {
-          Navigator.pop(context);
-        }
       }
     } catch (e) {
       if (mounted) setState(() => _isUpdating = false);
@@ -54,6 +56,41 @@ class _AlarmDetailsPageState extends State<AlarmDetailsPage> {
         context,
       ).showSnackBar(const SnackBar(content: Text("Failed to update status")));
     }
+  }
+
+  /// Keeps the screen in step with the server's answer (status, team).
+  void _applyResult(Map<String, dynamic> res, String fallbackStatus) {
+    final data = res['data'];
+    if (data is Map) {
+      _currentStatus = '${data['status'] ?? fallbackStatus}';
+      if (data['responders'] is List) _responders = data['responders'];
+    } else {
+      _currentStatus = fallbackStatus;
+    }
+  }
+
+  Future<void> _join() async {
+    setState(() => _joining = true);
+    final res = await IncidentService.join('alarms', widget.data['id']);
+    if (!mounted) return;
+    setState(() {
+      _joining = false;
+      if (res['data'] is Map) _applyResult(res, _currentStatus);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(res['message'] ?? 'Could not join the response')),
+    );
+  }
+
+  Widget _teamCard() {
+    final incident = {'responders': _responders};
+    return ResponseTeamCard(
+      names: responderNames(incident),
+      canJoin:
+          !isResponder(incident) && !IncidentStatus.isClosed(_currentStatus),
+      joining: _joining,
+      onJoin: _join,
+    );
   }
 
   @override
@@ -131,6 +168,21 @@ class _AlarmDetailsPageState extends State<AlarmDetailsPage> {
               ),
             ),
             const SizedBox(height: 20),
+            // Response team (several personnel can respond together)
+            _teamCard(),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text("Status: ",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Chip(
+                  label: Text(IncidentStatus.label(_currentStatus),
+                      style: const TextStyle(color: Colors.white)),
+                  backgroundColor: IncidentStatus.color(_currentStatus),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             const Text(
               "Incident Action Report",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -151,40 +203,46 @@ class _AlarmDetailsPageState extends State<AlarmDetailsPage> {
             const SizedBox(height: 20),
             _isUpdating
                 ? const Center(child: CircularProgressIndicator())
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_currentStatus == 'triggered' ||
-                          _currentStatus == 'pending')
-                        ElevatedButton.icon(
-                          onPressed: () => _updateStatus('responding'),
-                          icon: const Icon(Icons.directions_run),
-                          label: const Text("START RESPONDING"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                : _currentStatus == IncidentStatus.awaiting
+                    ? const AwaitingConfirmationNotice()
+                    : IncidentStatus.isClosed(_currentStatus)
+                        ? const SizedBox.shrink()
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (_currentStatus == 'triggered' ||
+                                  _currentStatus == 'pending')
+                                ElevatedButton.icon(
+                                  onPressed: () => _updateStatus('responding'),
+                                  icon: const Icon(Icons.directions_run),
+                                  label: const Text("START RESPONDING"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                  ),
+                                ),
+                              const SizedBox(height: 10),
+                              ElevatedButton.icon(
+                                onPressed: () => _updateStatus('resolved'),
+                                icon: const Icon(Icons.check_circle),
+                                label: const Text("MARK AS RESOLVED"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextButton(
+                                onPressed: () => _updateStatus('false_alarm'),
+                                child: const Text(
+                                  "False Alarm",
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      const SizedBox(height: 10),
-                      ElevatedButton.icon(
-                        onPressed: () => _updateStatus('resolved'),
-                        icon: const Icon(Icons.check_circle),
-                        label: const Text("MARK AS RESOLVED"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextButton(
-                        onPressed: () => _updateStatus('false_alarm'),
-                        child: const Text(
-                          "False Alarm",
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
           ],
         ),
       ),

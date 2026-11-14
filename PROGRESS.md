@@ -21,10 +21,13 @@
 | `reset-data.bat`: delete all personnel/resident data (keeps admins and stations) | `php artisan qrt:reset-data` |
 | Registration validation (name, email, 09 mobile number, address, password + confirm) | `lib/utils/validators.dart`, `AuthController::register` |
 | ngrok: fixed internet address so phones work on any Wi-Fi / mobile data | `setup-ngrok.bat`, `php artisan qrt:gateway` |
+| **Team response + mutual resolution**: several personnel join an incident; "Resolved" waits for the resident's YES (NOT YET = back to ongoing; no reply in 24 h = auto-resolved) | `IncidentWorkflow`, `incident_widgets.dart`, `POST /api/{reports,alarms}/{id}/join` and `/resolution` |
+| **Personnel log** (click a personnel): assigned shift vs. timed in/out, paid hours only inside the shift, salary, responses, solved cases; month or date range; printable for payroll | `DutyLog`, `PersonnelLog`, Web admin → Personnel |
+| No time in after the day's shift ended; "Audit Logs" renamed "Personnel Logs"; resident page shows who responded | `PersonnelAttendanceController`, Web admin |
 | **In-app updates**: "Update available" with what's new, **Update now** downloads and installs; optional "required" updates | `build-apk.bat`, Web admin → **App Updates**, `lib/services/update_service.dart` |
 | Audio & video calls (LiveKit): call buttons in the chat, ringing screen + ringtone notification with Accept/Decline (also when the app is closed), mute / speaker / camera / flip, call records in the chat ("📞 Voice call · 02:05", "Missed video call") | `CallController.php`, `LiveKitService.php`, `lib/services/call_service.dart`, `lib/pages/call_page.dart`, `lib/pages/incoming_call_page.dart` |
 
-Back-end tests: `cd web/qrt && php artisan test` (64 passing). App tests: `flutter test test/validators_test.dart test/update_dialog_test.dart`.
+Back-end tests: `cd web/qrt && php artisan test` (87 passing). App tests: `flutter test test/validators_test.dart test/update_dialog_test.dart`.
 
 ## How to run locally
 

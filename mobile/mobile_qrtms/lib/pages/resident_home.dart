@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/incident_service.dart';
+import '../widgets/incident_widgets.dart';
 import '../services/api_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
@@ -25,6 +27,11 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
   int _unreadMessages = 0;
   StreamSubscription? _incomingMessageSubscription;
 
+  /// Reports / SOS a responder marked resolved, waiting for this resident's answer.
+  List<Map<String, dynamic>> _awaitingConfirmation = [];
+  final Set<String> _answering = {};
+  int _pollTicks = 0;
+
   @override
   void initState() {
     super.initState();
@@ -39,8 +46,10 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
     _incomingMessageSubscription = RealtimeService.instance.incomingMessages
         .listen((_) => _refreshUnreadMessages());
     // Start polling for alarm status updates every 5 seconds
+    _checkAwaitingConfirmation();
     _statusPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _checkActiveAlarmStatus();
+      if (++_pollTicks % 3 == 0) _checkAwaitingConfirmation();
       if (!RealtimeService.instance.isConnected) _refreshUnreadMessages();
     });
   }
@@ -50,6 +59,27 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
     _statusPollingTimer?.cancel();
     _incomingMessageSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _checkAwaitingConfirmation() async {
+    final items = await IncidentService.awaitingMyConfirmation();
+    if (mounted) setState(() => _awaitingConfirmation = items);
+  }
+
+  /// Resident agrees (or not) that the responders resolved it.
+  Future<void> _answerResolution(
+      Map<String, dynamic> item, bool resolved) async {
+    final key = '${item['_type']}-${item['id']}';
+    setState(() => _answering.add(key));
+    final res =
+        await IncidentService.answer(item['_type'], item['id'], resolved);
+    if (!mounted) return;
+    _answering.remove(key);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(res['message'] ?? 'Thank you')),
+    );
+    await _checkAwaitingConfirmation();
+    _checkActiveAlarmStatus();
   }
 
   Future<void> _refreshUnreadMessages() async {
@@ -410,6 +440,21 @@ class _ResidentHomePageState extends State<ResidentHomePage> {
                           labelStyle:
                               TextStyle(color: Colors.white, fontSize: 10),
                         ),
+                      ),
+                    ),
+                  // Mutual agreement: confirm (or not) that it is resolved
+                  for (final item in _awaitingConfirmation)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: ResolutionConfirmCard(
+                        title: item['_type'] == 'alarms'
+                            ? 'your SOS'
+                            : '${item['title'] ?? 'your report'}',
+                        responders: responderNames(item),
+                        busy: _answering
+                            .contains('${item['_type']}-${item['id']}'),
+                        onAnswer: (resolved) =>
+                            _answerResolution(item, resolved),
                       ),
                     ),
                   Spacer(),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/incident_service.dart';
+import '../widgets/incident_widgets.dart';
 import 'chat_page.dart';
 
 class ReportDetailsPage extends StatefulWidget {
@@ -13,12 +15,15 @@ class ReportDetailsPage extends StatefulWidget {
 class _ReportDetailsPageState extends State<ReportDetailsPage> {
   final TextEditingController _actionController = TextEditingController();
   bool _isUpdating = false;
+  bool _joining = false;
   late String _currentStatus;
+  List<dynamic> _responders = [];
 
   @override
   void initState() {
     super.initState();
     _currentStatus = widget.data['status'] ?? 'pending';
+    _responders = (widget.data['responders'] as List?) ?? [];
     _actionController.text = widget.data['action_taken'] ?? '';
   }
 
@@ -33,13 +38,12 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
 
       if (mounted) {
         setState(() {
-          _currentStatus = newStatus;
+          _applyResult(res, newStatus);
           _isUpdating = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(res['message'] ?? "Status updated")),
         );
-        if (newStatus == 'resolved') Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) setState(() => _isUpdating = false);
@@ -47,6 +51,41 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
         const SnackBar(content: Text("Failed to update status")),
       );
     }
+  }
+
+  /// Keeps the screen in step with the server's answer (status, team).
+  void _applyResult(Map<String, dynamic> res, String fallbackStatus) {
+    final data = res['data'];
+    if (data is Map) {
+      _currentStatus = '${data['status'] ?? fallbackStatus}';
+      if (data['responders'] is List) _responders = data['responders'];
+    } else {
+      _currentStatus = fallbackStatus;
+    }
+  }
+
+  Future<void> _join() async {
+    setState(() => _joining = true);
+    final res = await IncidentService.join('reports', widget.data['id']);
+    if (!mounted) return;
+    setState(() {
+      _joining = false;
+      if (res['data'] is Map) _applyResult(res, _currentStatus);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(res['message'] ?? 'Could not join the response')),
+    );
+  }
+
+  Widget _teamCard() {
+    final incident = {'responders': _responders};
+    return ResponseTeamCard(
+      names: responderNames(incident),
+      canJoin:
+          !isResponder(incident) && !IncidentStatus.isClosed(_currentStatus),
+      joining: _joining,
+      onJoin: _join,
+    );
   }
 
   @override
@@ -187,7 +226,23 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
             ),
             const SizedBox(height: 24),
 
-            // 6. Action and Status Update
+            // 6. Response team (several personnel can respond together)
+            _teamCard(),
+            const SizedBox(height: 16),
+
+            // 7. Action and Status Update
+            Row(
+              children: [
+                const Text("Status: ",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Chip(
+                  label: Text(IncidentStatus.label(_currentStatus),
+                      style: const TextStyle(color: Colors.white)),
+                  backgroundColor: IncidentStatus.color(_currentStatus),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             const Text("Responder Action Report",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
@@ -204,6 +259,10 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
             const SizedBox(height: 20),
             if (_isUpdating)
               const Center(child: CircularProgressIndicator())
+            else if (_currentStatus == IncidentStatus.awaiting)
+              const AwaitingConfirmationNotice()
+            else if (IncidentStatus.isClosed(_currentStatus))
+              const SizedBox.shrink()
             else
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -66,6 +66,10 @@ class _PersonnelAlarmsPageState extends State<PersonnelAlarmsPage>
       case 'resolved':
         color = Colors.green;
         break;
+      case 'awaiting_confirmation':
+        color = Colors.amber.shade800;
+        displayStatus = "WAITING FOR RESIDENT";
+        break;
       case 'false_alarm':
         color = Colors.grey;
         displayStatus = "False Alarm";
