@@ -75,6 +75,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
         
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');
+        Route::get('sos/{id}', [ReportController::class, 'showSos'])->name('sos.show');
         Route::post('reports/{report}/status', [ReportController::class, 'updateStatus'])->name('reports.update-status');
         Route::get('reports-monthly', [ReportController::class, 'monthly'])->name('reports.monthly');
 

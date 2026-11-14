@@ -291,6 +291,52 @@ class IncidentWorkflowTest extends TestCase
             ->assertSee('Pedro Santos');
     }
 
+    public function test_reports_tab_includes_sos_with_filters(): void
+    {
+        $report = $this->report();
+        $alarm = $this->alarm();
+        $alarm->addResponder($this->juan);
+        $alarm->forceFill(['status' => 'resolved', 'resolved_at' => now(), 'resolution_method' => 'confirmed'])->save();
+
+        $this->actingAs($this->admin)->get('/admin/reports')
+            ->assertOk()
+            ->assertSee('#INC-' . $report->id)
+            ->assertSee('#SOS-' . $alarm->id)
+            ->assertSee('Juan Cruz');
+
+        $this->actingAs($this->admin)->get('/admin/reports?type=sos')
+            ->assertSee('#SOS-' . $alarm->id)
+            ->assertDontSee('#INC-' . $report->id);
+
+        $this->actingAs($this->admin)->get('/admin/reports?status=resolved')
+            ->assertSee('#SOS-' . $alarm->id)
+            ->assertDontSee('#INC-' . $report->id);
+
+        $this->actingAs($this->admin)->get("/admin/sos/{$alarm->id}")
+            ->assertOk()
+            ->assertSee('Maria Reyes')
+            ->assertSee('Juan Cruz')
+            ->assertSee('confirmed by the resident');
+    }
+
+    public function test_personnel_keeps_seeing_incidents_they_responded_to(): void
+    {
+        $mine = $this->report();
+        $mine->addResponder($this->juan);
+        $mine->forceFill(['status' => 'resolved', 'resolved_at' => now(), 'resolution_method' => 'confirmed'])->save();
+        $other = $this->report(); // at the station, but Juan never responded
+
+        // Off duty: only the incidents Juan responded to, resolved ones included
+        Sanctum::actingAs($this->juan);
+        $this->assertSame([$mine->id], array_column($this->getJson('/api/reports')->json('data'), 'id'));
+
+        // On duty: everything at the station
+        $this->onDuty($this->juan);
+        $ids = array_column($this->getJson('/api/reports')->json('data'), 'id');
+        sort($ids);
+        $this->assertSame([$mine->id, $other->id], $ids);
+    }
+
     public function test_menu_says_personnel_logs(): void
     {
         $this->actingAs($this->admin)->get('/admin/audit-logs')

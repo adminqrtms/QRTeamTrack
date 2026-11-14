@@ -31,11 +31,14 @@ class ReportController extends Controller
                 ->latest()
                 ->first();
 
-            if (!$currentAttendance) {
-                return response()->json(['data' => []]);
-            }
-
-            $query->where('location_id', $currentAttendance->location_id);
+            // On duty: everything at their station. Always: the ones they responded to
+            // (so resolved incidents stay in their list, as in the resident's app).
+            $query->where(function ($q) use ($currentAttendance, $user) {
+                if ($currentAttendance) {
+                    $q->where('location_id', $currentAttendance->location_id);
+                }
+                $q->orWhereHas('responders', fn ($r) => $r->where('users.id', $user->id));
+            });
         } 
         // Residents should only see their own submitted reports
         elseif ($user->role === 'resident') {

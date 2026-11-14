@@ -36,12 +36,14 @@ class AlarmController extends Controller
                 ->latest()
                 ->first();
 
-            if (!$currentAttendance) {
-                return response()->json(['data' => []]);
-            }
-
-            // Filter alarms based on the location where they are currently timed in
-            $query->where('alarms.location_id', $currentAttendance->location_id);
+            // On duty: everything at their station. Always: the ones they responded to
+            // (so resolved incidents stay in their list, as in the resident's app).
+            $query->where(function ($q) use ($currentAttendance, $user) {
+                if ($currentAttendance) {
+                    $q->where('alarms.location_id', $currentAttendance->location_id);
+                }
+                $q->orWhereHas('responders', fn ($r) => $r->where('users.id', $user->id));
+            });
         } 
         // Residents only see their own triggered alarms
         elseif ($user->role === 'resident') {
