@@ -1,6 +1,14 @@
 @echo off
 rem Starts the Laravel API, the Reverb chat server and (if installed) the LiveKit call server.
 cd /d "%~dp0web\qrt"
+rem Bring the database up to date (new tables/columns from the latest update)
+php artisan migrate --force
+if errorlevel 1 (
+    echo.
+    echo WARNING: The database could not be updated. Check that MySQL is running in XAMPP,
+    echo          then close these windows and run start-server.bat again.
+    echo.
+)
 rem Makes uploaded photos (avatars, reports) reachable at /storage
 if not exist "public\storage" php artisan storage:link >nul 2>&1
 start "QRT - Laravel API (port 8000)" cmd /k php artisan serve --host=0.0.0.0 --port=8000

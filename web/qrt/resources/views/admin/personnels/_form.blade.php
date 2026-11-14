@@ -51,7 +51,7 @@
     </div>
 </div>
 
-<h6 class="fw-bold text-secondary small text-uppercase mb-2">Address</h6>
+<h6 class="fw-bold text-secondary small text-uppercase mb-2">Address (BARMM)</h6>
 <div class="row g-3 mb-4" id="address-fields"
      data-source="{{ asset('data/ph-addresses.json') }}"
      data-province="{{ $province }}" data-city="{{ $city }}" data-barangay="{{ $barangay }}">

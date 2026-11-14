@@ -3,7 +3,7 @@
 namespace App\Support;
 
 /**
- * Philippine provinces, cities/municipalities and barangays
+ * BARMM provinces, cities/municipalities and barangays
  * (public/data/ph-addresses.json, from the PSA's PSGC, 30 June 2026).
  * The admin address dropdowns load the same file.
  */
