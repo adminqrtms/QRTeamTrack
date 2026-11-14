@@ -15,7 +15,8 @@ class ReportController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Report::with(['user', 'personnel'])->latest();
+        \App\Services\IncidentWorkflow::autoResolveOverdue();
+        $query = Report::with(['user', 'personnel', 'responders:id,name'])->latest();
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -30,7 +31,8 @@ class ReportController extends Controller
      */
     public function show($id)
     {
-        $report = Report::with(['user', 'personnel', 'location'])->findOrFail($id);
+        \App\Services\IncidentWorkflow::autoResolveOverdue();
+        $report = Report::with(['user', 'personnel', 'location', 'responders', 'resolutionRequester:id,name'])->findOrFail($id);
         return view('admin.reports.show', compact('report'));
     }
 
@@ -40,10 +42,18 @@ class ReportController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|in:pending,in_progress,resolved,closed',
+            'status' => 'required|in:pending,ongoing,in_progress,resolved,closed',
         ]);
 
         $report = Report::findOrFail($id);
+
+        // Resolving needs the resident's agreement, even from the admin
+        if ($request->status === 'resolved' && $report->status !== 'resolved') {
+            app(\App\Services\IncidentWorkflow::class)->requestResolution($report, $request->user());
+
+            return back()->with('success', 'The resident has been asked to confirm that the report is resolved.');
+        }
+
         $report->status = $request->status;
         $report->save();
 

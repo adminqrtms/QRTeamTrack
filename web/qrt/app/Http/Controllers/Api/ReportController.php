@@ -7,13 +7,16 @@ use App\Models\Report;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
 use Illuminate\Support\Facades\Validator;
+use App\Services\IncidentWorkflow;
 
 class ReportController extends Controller
 {
     public function index(Request $request)
     {
+        IncidentWorkflow::autoResolveOverdue();
+
         $user = $request->user();
-        $query = Report::with(['resident', 'personnel', 'location', 'respondent']);
+        $query = Report::with(['resident', 'personnel', 'location', 'respondent', 'responders:id,name,phone_number']);
 
         // Allow filtering by status (e.g., status=pending,ongoing)
         if ($request->has('status')) {
@@ -97,7 +100,8 @@ class ReportController extends Controller
 
     public function show(Request $request, $id)
     {
-        $report = Report::with(['resident', 'personnel', 'respondent'])->find($id);
+        IncidentWorkflow::autoResolveOverdue();
+        $report = Report::with(['resident', 'personnel', 'respondent', 'responders:id,name,phone_number', 'resolutionRequester:id,name'])->find($id);
 
         if (!$report) {
             return response()->json(['message' => 'Report not found'], 404);
@@ -129,22 +133,97 @@ class ReportController extends Controller
             'action_taken' => 'nullable|string',
         ]);
 
+        $user = $request->user();
+
         // Only these fields may change here (never the owner, location, etc.)
-        $data = $request->only(['status', 'action_taken']);
+        $data = $request->only(['action_taken']);
 
         // Capture respondent details when action is first taken (moving from pending)
         if (in_array($request->status, ['ongoing', 'resolved']) && !$report->respondent_at) {
-            $data['respondent_by'] = $request->user()->id;
+            $data['respondent_by'] = $user->id;
             $data['respondent_at'] = now();
-            $data['assigned_to'] = $report->assigned_to ?? $request->user()->id;
+            $data['assigned_to'] = $report->assigned_to ?? $user->id;
         }
 
-        $report->update($data);
+        // Personnel who act on a report are part of its response team
+        if ($user->role === 'personnel' && $request->filled('status')) {
+            $report->addResponder($user);
+        }
+
+        // "Resolved" needs the resident's agreement: wait for their confirmation
+        $message = 'Report updated successfully';
+        if ($request->status === 'resolved' && $report->status !== 'resolved') {
+            $report->fill($data)->save();
+            app(IncidentWorkflow::class)->requestResolution($report, $user);
+            $message = 'Waiting for the resident to confirm that it is resolved.';
+        } else {
+            if ($request->filled('status')) {
+                $data['status'] = $request->status;
+            }
+            $report->update($data);
+        }
 
         // Reload relationships to include respondent details in the response
-        $report->load(['resident', 'personnel', 'location', 'respondent']);
+        $report->load(['resident', 'personnel', 'location', 'respondent', 'responders:id,name,phone_number']);
 
-        return response()->json(['message' => 'Report updated successfully', 'data' => $report]);
+        return response()->json(['message' => $message, 'data' => $report]);
+    }
+
+    /** Personnel joins the response team of a report. */
+    public function join(Request $request, $id)
+    {
+        $report = Report::find($id);
+        if (!$report) {
+            return response()->json(['message' => 'Report not found'], 404);
+        }
+
+        $user = $request->user();
+        $workflow = app(IncidentWorkflow::class);
+        if (!$report->hasResponder($user) && !$workflow->canJoin($report, $user)) {
+            return response()->json(['message' => 'Time in at this station first to join the response.'], 403);
+        }
+        if (in_array($report->status, ['resolved', 'closed', 'false_alarm'])) {
+            return response()->json(['message' => 'This report is already closed.'], 422);
+        }
+
+        $report->addResponder($user);
+        if ($report->status === 'pending') {
+            $report->forceFill([
+                'status' => 'ongoing',
+                'respondent_by' => $report->respondent_by ?? $user->id,
+                'respondent_at' => $report->respondent_at ?? now(),
+                'assigned_to' => $report->assigned_to ?? $user->id,
+            ])->save();
+        }
+
+        return response()->json([
+            'message' => 'You joined the response.',
+            'data' => $report->load('responders:id,name,phone_number'),
+        ]);
+    }
+
+    /** Resident confirms (resolved = true) or rejects the responder's "resolved". */
+    public function answerResolution(Request $request, $id)
+    {
+        $request->validate(['resolved' => 'required|boolean']);
+
+        $report = Report::find($id);
+        if (!$report) {
+            return response()->json(['message' => 'Report not found'], 404);
+        }
+        if ((int) $report->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Only the resident who reported it can confirm.'], 403);
+        }
+        if (!$report->isAwaitingConfirmation()) {
+            return response()->json(['message' => 'This report is not waiting for your confirmation.'], 422);
+        }
+
+        app(IncidentWorkflow::class)->residentAnswer($report, $request->user(), $request->boolean('resolved'));
+
+        return response()->json([
+            'message' => $request->boolean('resolved') ? 'Thank you! The report is now resolved.' : 'The responders were told it is not yet resolved.',
+            'data' => $report->fresh()->load('responders:id,name,phone_number'),
+        ]);
     }
 
     public function destroy(Request $request, $id)

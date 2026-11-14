@@ -51,9 +51,11 @@
                                     <span class="text-muted small">{{ $report->user->name ?? 'Unknown' }}</span>
                                 </td>
                                 <td>
-                                    <span class="badge rounded-pill bg-{{ $report->status == 'resolved' ? 'success' : 'info' }}">
-                                        {{ ucfirst($report->status) }}
-                                    </span>
+                                    {!! \App\Support\IncidentStatus::badge($report->status, $report->resolution_method) !!}
+                                    @if($report->responders->isNotEmpty())
+                                        <div class="small text-muted mt-1">{{ $report->responders->pluck('name')->join(', ') }}</div>
+                                    @endif
+
                                 </td>
                                 <td>
                                     <div class="small fw-bold">{{ $report->created_at->format('M d, Y') }}</div>

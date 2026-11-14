@@ -32,9 +32,7 @@
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold">Incident Information</h5>
-                    <span class="badge rounded-pill bg-{{ $report->status == 'resolved' ? 'success' : ($report->status == 'pending' ? 'danger' : 'info') }} px-3 py-2">
-                        {{ strtoupper($report->status) }}
-                    </span>
+                    {!! \App\Support\IncidentStatus::badge($report->status, $report->resolution_method) !!}
                 </div>
                 <div class="card-body">
                     <div class="row mb-4">
@@ -106,6 +104,13 @@
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
                     <h6 class="text-muted small text-uppercase fw-bold mb-3">Manage Incident</h6>
+                    @if($report->isAwaitingConfirmation())
+                        <div class="alert alert-warning small py-2">
+                            {{ $report->resolutionRequester->name ?? 'A responder' }} marked it resolved on
+                            {{ $report->resolution_requested_at->format('M j, g:i A') }}. Waiting for the resident to confirm;
+                            it resolves automatically on {{ $report->resolution_requested_at->copy()->addHours(\App\Services\IncidentWorkflow::AUTO_RESOLVE_HOURS)->format('M j, g:i A') }} if there is no reply.
+                        </div>
+                    @endif
                     <form action="{{ route('admin.reports.updateStatus', $report->id) }}" method="POST">
                         @csrf
                         @method('PATCH')
@@ -113,8 +118,8 @@
                             <label class="form-label small">Update Status</label>
                             <select name="status" class="form-select shadow-sm">
                                 <option value="pending" @if($report->status == 'pending') selected @endif>Pending</option>
-                                <!-- <option value="in_progress" @if($report->status == 'in_progress') selected @endif>In Progress</option> -->
-                                <option value="resolved" @if($report->status == 'resolved') selected @endif>Resolved</option>
+                                <option value="ongoing" @if(in_array($report->status, ['ongoing', 'in_progress'])) selected @endif>Ongoing</option>
+                                <option value="resolved" @if(in_array($report->status, ['resolved', 'awaiting_confirmation'])) selected @endif>Resolved (resident must confirm)</option>
                                 <!-- <option value="closed" @if($report->status == 'closed') selected @endif>Closed</option> -->
                             </select>
                         </div>
@@ -146,14 +151,26 @@
             <!-- Assigned Personnel -->
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h6 class="text-muted small text-uppercase fw-bold mb-3">Assigned QRT Personnel</h6>
-                    @if($report->personnel)
+                    <h6 class="text-muted small text-uppercase fw-bold mb-3">Response Team</h6>
+                    @if($report->responders->isNotEmpty())
+                        @foreach($report->responders as $member)
+                            <div class="d-flex align-items-center {{ $loop->last ? '' : 'mb-3' }}">
+                                <img src="{{ $member->avatar ? asset('storage/' . $member->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($member->name) }}"
+                                     class="rounded-circle border me-3" width="44" height="44" style="object-fit: cover;">
+                                <div>
+                                    <div class="fw-bold text-dark">{{ $member->name }}</div>
+                                    <div class="small text-muted">Joined {{ \Carbon\Carbon::parse($member->pivot->joined_at)->format('M j, g:i A') }}
+                                        &middot; <a href="{{ route('admin.personnels.attendance', $member->id) }}" class="text-decoration-none">Log</a></div>
+                                </div>
+                            </div>
+                        @endforeach
+                    @elseif($report->personnel)
                         <div class="d-flex align-items-center">
-                            <img src="{{ $report->personnel->avatar ? asset('storage/' . $report->personnel->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($report->personnel->name) }}" 
+                            <img src="{{ $report->personnel->avatar ? asset('storage/' . $report->personnel->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($report->personnel->name) }}"
                                  class="rounded-circle border me-3" width="48" height="48" style="object-fit: cover;">
                             <div>
                                 <div class="fw-bold text-dark">{{ $report->personnel->name }}</div>
-                                <a href="{{ route('admin.personnels.attendance', $report->personnel->id) }}" class="text-decoration-none smaller">View Profile</a>
+                                <div class="small text-muted">Assigned, not responding yet</div>
                             </div>
                         </div>
                     @else

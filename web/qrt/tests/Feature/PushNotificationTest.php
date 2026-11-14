@@ -222,7 +222,7 @@ class PushNotificationTest extends TestCase
         ]);
 
         Sanctum::actingAs($this->personnel);
-        $this->putJson("/api/alarms/{$alarm->id}", ['status' => 'resolved'])->assertOk();
+        $this->putJson("/api/alarms/{$alarm->id}", ['status' => 'responded'])->assertOk();
 
         $this->assertCount(0, $this->sentMessages());
     }

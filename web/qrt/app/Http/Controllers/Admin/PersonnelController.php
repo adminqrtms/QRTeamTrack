@@ -8,6 +8,7 @@ use App\Models\Location;
 use App\Models\Attendance;
 use App\Models\AuditLog;
 use App\Support\PhAddress;
+use App\Services\PersonnelLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -289,22 +290,31 @@ class PersonnelController extends Controller
     /**
      * View Time in/Time Out (Attendance) for a specific personnel.
      */
-    public function attendance($id)
+    /**
+     * Personnel log: assigned shift vs. time in/out, paid hours and salary,
+     * incident responses and solved cases, for a month or a date range.
+     */
+    public function attendance(Request $request, $id)
     {
-        $personnel = User::findOrFail($id);
+        $personnel = User::where('role', 'personnel')->findOrFail($id);
+        $period = PersonnelLog::period($request);
 
-        // Calculate current month summary
-        $startOfMonth = now()->startOfMonth();
-        $endOfMonth = now()->endOfMonth();
+        return view('admin.personnels.attendance', array_merge(
+            compact('personnel', 'period'),
+            PersonnelLog::build($personnel, $period),
+        ));
+    }
 
-        $monthlyHours = $personnel->attendances()
-            ->whereBetween('date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
-            ->sum('hours_worked');
+    /** Printable personnel log (basis for salary). */
+    public function attendancePrint(Request $request, $id)
+    {
+        $personnel = User::where('role', 'personnel')->findOrFail($id);
+        $period = PersonnelLog::period($request);
 
-        $monthlySalary = round($monthlyHours * ($personnel->hourly_rate ?? 0), 2);
-
-        $attendances = $personnel->attendances()->latest()->paginate(15);
-        return view('admin.personnels.attendance', compact('personnel', 'attendances', 'monthlyHours', 'monthlySalary'));
+        return view('admin.personnels.attendance_print', array_merge(
+            compact('personnel', 'period'),
+            PersonnelLog::build($personnel, $period),
+        ));
     }
 
     /**

@@ -89,7 +89,7 @@
                                 <div class="d-flex align-items-center">
                                     <img src="{{ $p->avatar ? asset('storage/' . $p->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($p->name) . '&background=random' }}" 
                                          alt="Avatar" class="rounded-circle me-3 border shadow-sm" style="width: 40px; height: 40px; object-fit: cover;">
-                                    <span class="fw-bold text-dark">{{ $p->name }}</span>
+                                    <a href="{{ route('admin.personnels.attendance', $p->id) }}" class="fw-bold text-dark text-decoration-none" title="Open personnel log">{{ $p->name }}</a>
                                 </div>
                             </td>
                             <td class="py-3">
@@ -128,7 +128,7 @@
                             </td>
                             <td class="px-4 py-3 text-center">
                                 <div class="d-flex justify-content-center gap-2">
-                                    <a href="{{ route('admin.personnels.attendance', $p->id) }}" class="btn btn-sm btn-outline-secondary" title="View Attendance">
+                                    <a href="{{ route('admin.personnels.attendance', $p->id) }}" class="btn btn-sm btn-outline-secondary" title="Personnel log (duty, responses, print)">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     </a>
                                     <a href="{{ route('admin.personnels.edit', $p->id) }}" class="btn btn-sm btn-outline-primary" title="Edit">

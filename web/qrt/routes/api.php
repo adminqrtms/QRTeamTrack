@@ -27,6 +27,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/update-profile', [UserController::class, 'updateProfile']);
     Route::apiResource('reports', ReportController::class);
     Route::apiResource('alarms', AlarmController::class);
+    // Team response and mutual resolution (resident confirms "resolved")
+    Route::post('/reports/{id}/join', [ReportController::class, 'join'])->whereNumber('id');
+    Route::post('/reports/{id}/resolution', [ReportController::class, 'answerResolution'])->whereNumber('id');
+    Route::post('/alarms/{id}/join', [AlarmController::class, 'join'])->whereNumber('id');
+    Route::post('/alarms/{id}/resolution', [AlarmController::class, 'answerResolution'])->whereNumber('id');
     // Stations with on-duty personnel (resident SOS when no responder is nearby)
     Route::get('/stations/available', [AlarmController::class, 'availableStations']);
     // This route is now protected and will correctly identify the logged-in personnel

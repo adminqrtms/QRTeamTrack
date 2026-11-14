@@ -3,11 +3,27 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Concerns\IsIncident;
 use Illuminate\Database\Eloquent\Model;
 
 class Report extends Model
 {
-    use HasFactory;
+    use HasFactory, IsIncident;
+
+    public function incidentType(): string
+    {
+        return 'report';
+    }
+
+    public function activeStatus(): string
+    {
+        return 'ongoing';
+    }
+
+    public function incidentLabel(): string
+    {
+        return $this->title ?: 'Report #' . $this->id;
+    }
 
     protected $fillable = [
         'user_id',
@@ -23,6 +39,10 @@ class Report extends Model
         'respondent_by',
         'respondent_at',
         'action_taken',
+        'resolution_requested_at',
+        'resolution_requested_by',
+        'resolved_at',
+        'resolution_method',
     ];
 
     protected $casts = [
@@ -33,6 +53,8 @@ class Report extends Model
         'assigned_to' => 'integer',
         'respondent_by' => 'integer',
         'location_id' => 'integer',
+        'resolution_requested_at' => 'datetime',
+        'resolved_at' => 'datetime',
     ];
 
     public function user()

@@ -26,7 +26,7 @@
                         <a class="nav-link" href="{{ route('admin.reports.index') }}">Reports</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.audit-logs.*') ? 'active' : '' }}" href="{{ route('admin.audit-logs.index') }}">Audit Logs</a>
+                        <a class="nav-link {{ request()->routeIs('admin.audit-logs.*') ? 'active' : '' }}" href="{{ route('admin.audit-logs.index') }}">Personnel Logs</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('admin.app-releases.*') ? 'active' : '' }}" href="{{ route('admin.app-releases.index') }}">App Updates</a>

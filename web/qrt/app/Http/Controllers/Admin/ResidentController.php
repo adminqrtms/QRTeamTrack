@@ -26,11 +26,17 @@ class ResidentController extends Controller
      */
     public function show($id)
     {
+        \App\Services\IncidentWorkflow::autoResolveOverdue();
+
         $resident = User::where('role', 'resident')
-            ->with(['reports', 'alarms', 'location'])
+            ->with('location')
             ->findOrFail($id);
 
-        return view('admin.residents.show', compact('resident'));
+        // Every report and SOS, with the names of the personnel who responded
+        $reports = $resident->reports()->with('responders:id,name')->latest()->get();
+        $alarms = $resident->alarms()->with(['responders:id,name', 'location:id,location_name'])->latest()->get();
+
+        return view('admin.residents.show', compact('resident', 'reports', 'alarms'));
     }
 
     public function destroy($id)

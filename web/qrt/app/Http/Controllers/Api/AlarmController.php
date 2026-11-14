@@ -7,6 +7,7 @@ use App\Models\Alarm;
 use App\Models\Attendance;
 use Illuminate\Http\Request;
 use App\Models\Location;
+use App\Services\IncidentWorkflow;
 use App\Services\PushNotificationService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -16,8 +17,10 @@ class AlarmController extends Controller
     // View all alarms (Latest first)
     public function index(Request $request)
     {
+        IncidentWorkflow::autoResolveOverdue();
+
         $user = $request->user();
-        $query = Alarm::with(['user', 'responder', 'location']);
+        $query = Alarm::with(['user', 'responder', 'location', 'responders:id,name,phone_number']);
 
         // Allow filtering by status
         if ($request->has('status')) {
@@ -47,7 +50,7 @@ class AlarmController extends Controller
         
         // Prioritize 'triggered' alarms so they appear first in the API response
         // CASE instead of MySQL's FIELD() so this also works on SQLite
-        $alarms = $query->orderByRaw("CASE status WHEN 'triggered' THEN 1 WHEN 'responding' THEN 2 WHEN 'responded' THEN 3 WHEN 'resolved' THEN 4 WHEN 'false_alarm' THEN 5 ELSE 6 END")
+        $alarms = $query->orderByRaw("CASE status WHEN 'triggered' THEN 1 WHEN 'responding' THEN 2 WHEN 'responded' THEN 3 WHEN 'awaiting_confirmation' THEN 4 WHEN 'resolved' THEN 5 WHEN 'false_alarm' THEN 6 ELSE 7 END")
             ->latest()
             ->get();
             
@@ -162,7 +165,8 @@ class AlarmController extends Controller
     // View specific alarm details
     public function show(Request $request, $id)
     {
-        $alarm = Alarm::with(['user', 'responder', 'location'])->find($id);
+        IncidentWorkflow::autoResolveOverdue();
+        $alarm = Alarm::with(['user', 'responder', 'location', 'responders:id,name,phone_number', 'resolutionRequester:id,name'])->find($id);
 
         if (!$alarm) {
             return response()->json(['message' => 'Alarm not found'], 404);
@@ -198,7 +202,16 @@ class AlarmController extends Controller
             }
         }
 
-        $alarm->status = $request->status;
+        // Personnel who act on an SOS are part of its response team
+        if ($user->role === 'personnel' && $request->status !== 'false_alarm') {
+            $alarm->addResponder($user);
+        }
+
+        $requestResolution = $request->status === 'resolved' && $alarm->status !== 'resolved'
+            && $user->role !== 'resident';
+        if (!$requestResolution) {
+            $alarm->status = $request->status;
+        }
         $responderJustAssigned = false;
 
         if (in_array($request->status, ['responding', 'responded']) && !$alarm->responded_by) {
@@ -212,6 +225,11 @@ class AlarmController extends Controller
         }
 
         $alarm->save();
+
+        // "Resolved" needs the resident's agreement: wait for their confirmation
+        if ($requestResolution) {
+            app(IncidentWorkflow::class)->requestResolution($alarm, $user);
+        }
 
         // Let the resident know help is on the way
         if ($responderJustAssigned && (int) $alarm->user_id !== (int) $request->user()->id) {
@@ -228,6 +246,76 @@ class AlarmController extends Controller
             );
         }
 
-        return response()->json(['message' => 'Alarm updated', 'data' => $alarm]);
+        return response()->json([
+            'message' => $requestResolution ? 'Waiting for the resident to confirm that it is resolved.' : 'Alarm updated',
+            'data' => $alarm->load('responders:id,name,phone_number'),
+        ]);
+    }
+
+    /** Personnel joins the response team of an SOS. */
+    public function join(Request $request, $id)
+    {
+        $alarm = Alarm::find($id);
+        if (!$alarm) {
+            return response()->json(['message' => 'Alarm not found'], 404);
+        }
+
+        $user = $request->user();
+        $workflow = app(IncidentWorkflow::class);
+        if (!$alarm->hasResponder($user) && !$workflow->canJoin($alarm, $user)) {
+            return response()->json(['message' => 'Time in at this station first to join the response.'], 403);
+        }
+        if (in_array($alarm->status, ['resolved', 'false_alarm'])) {
+            return response()->json(['message' => 'This SOS is already closed.'], 422);
+        }
+
+        $isFirst = !$alarm->responded_by;
+        $alarm->addResponder($user);
+        if ($alarm->status === 'triggered') {
+            $alarm->forceFill([
+                'status' => 'responding',
+                'responded_by' => $alarm->responded_by ?? $user->id,
+                'responded_at' => $alarm->responded_at ?? now(),
+            ])->save();
+        }
+
+        if ($isFirst) {
+            app(PushNotificationService::class)->sendToUsersAfterResponse(
+                [$alarm->user_id],
+                'Help is on the way!',
+                'Rescuer ' . $user->name . ' is now responding to your SOS.',
+                ['type' => 'alarm', 'alarm_id' => $alarm->id, 'tag' => 'alarm_' . $alarm->id],
+                PushNotificationService::CHANNEL_EMERGENCY,
+            );
+        }
+
+        return response()->json([
+            'message' => 'You joined the response.',
+            'data' => $alarm->load('responders:id,name,phone_number'),
+        ]);
+    }
+
+    /** Resident confirms (resolved = true) or rejects the responder's "resolved". */
+    public function answerResolution(Request $request, $id)
+    {
+        $request->validate(['resolved' => 'required|boolean']);
+
+        $alarm = Alarm::find($id);
+        if (!$alarm) {
+            return response()->json(['message' => 'Alarm not found'], 404);
+        }
+        if ((int) $alarm->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Only the resident who sent the SOS can confirm.'], 403);
+        }
+        if (!$alarm->isAwaitingConfirmation()) {
+            return response()->json(['message' => 'This SOS is not waiting for your confirmation.'], 422);
+        }
+
+        app(IncidentWorkflow::class)->residentAnswer($alarm, $request->user(), $request->boolean('resolved'));
+
+        return response()->json([
+            'message' => $request->boolean('resolved') ? 'Thank you! Your SOS is now resolved.' : 'The responders were told it is not yet resolved.',
+            'data' => $alarm->fresh()->load('responders:id,name,phone_number'),
+        ]);
     }
 }

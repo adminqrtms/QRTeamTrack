@@ -4,7 +4,7 @@
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="h3 fw-bold text-dark mb-0">Audit Logs</h2>
+            <h2 class="h3 fw-bold text-dark mb-0">Personnel Logs</h2>
             <p class="text-secondary mb-0">Personnel time in and time out activity recorded from the mobile app.</p>
         </div>
         <span class="live-indicator text-success fw-semibold d-inline-flex align-items-center gap-1"><span class="dot"></span> Live</span>

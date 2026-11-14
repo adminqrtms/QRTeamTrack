@@ -56,6 +56,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::post('personnels/{id}/force-time-out', [PersonnelController::class, 'forceTimeOut'])->name('personnels.forceTimeOut');
         Route::post('personnels/{id}/toggle-status', [PersonnelController::class, 'toggleStatus'])->name('personnels.toggleStatus');
         Route::get('personnels/{id}/attendance', [PersonnelController::class, 'attendance'])->name('personnels.attendance');
+        Route::get('personnels/{id}/attendance/print', [PersonnelController::class, 'attendancePrint'])->name('personnels.attendance.print');
         Route::resource('personnels', PersonnelController::class);
 
         // Resident Management

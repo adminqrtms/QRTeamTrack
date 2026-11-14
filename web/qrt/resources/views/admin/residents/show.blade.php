@@ -45,39 +45,35 @@
 
         <!-- Activity Details -->
         <div class="col-md-8">
-            <!-- Alarm History -->
+            <!-- SOS alarms -->
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-bell-fill text-danger me-2"></i>Recent Alarms</h5>
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-bell-fill text-danger me-2"></i>SOS Alarms <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ $alarms->count() }}</span></h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="bg-light text-muted small text-uppercase">
                                 <tr>
-                                    <th class="ps-4">Status</th>
-                                    <th>Location (Lat/Lng)</th>
-                                    <th>Triggered At</th>
-                                    <th class="text-end pe-4">Action</th>
+                                    <th class="ps-4">SOS</th>
+                                    <th>Sent</th>
+                                    <th>Responded by</th>
+                                    <th class="pe-4">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($resident->alarms()->latest()->take(5)->get() as $alarm)
+                                @forelse($alarms as $alarm)
                                     <tr>
-                                        <td class="ps-4">
-                                            <span class="badge rounded-pill bg-{{ $alarm->status == 'triggered' ? 'danger' : ($alarm->status == 'resolved' ? 'success' : 'warning') }}">
-                                                {{ ucfirst($alarm->status) }}
-                                            </span>
+                                        <td class="ps-4 fw-bold">#{{ $alarm->id }}
+                                            <div class="small text-muted fw-normal">{{ $alarm->location->location_name ?? '' }}</div>
                                         </td>
-                                        <td class="small">{{ $alarm->latitude }}, {{ $alarm->longitude }}</td>
-                                        <td>{{ $alarm->created_at->format('M d, Y h:i A') }}</td>
-                                        <td class="text-end pe-4">
-                                            <span class="text-muted small">ID: #{{ $alarm->id }}</span>
-                                        </td>
+                                        <td class="small">{{ $alarm->created_at->format('M d, Y h:i A') }}</td>
+                                        <td class="small">@include('admin.residents._responders', ['incident' => $alarm])</td>
+                                        <td class="pe-4">{!! \App\Support\IncidentStatus::badge($alarm->status, $alarm->resolution_method) !!}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="text-center py-4 text-muted">No alarms recorded.</td>
+                                        <td colspan="4" class="text-center py-4 text-muted">No SOS sent.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -89,31 +85,30 @@
             <!-- Incident Reports -->
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Submitted Reports</h5>
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Submitted Reports <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ $reports->count() }}</span></h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="bg-light text-muted small text-uppercase">
                                 <tr>
-                                    <th class="ps-4">Reference</th>
-                                    <th>Type</th>
+                                    <th class="ps-4">Report</th>
+                                    <th>Responded by</th>
                                     <th>Status</th>
                                     <th class="text-end pe-4">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($resident->reports()->latest()->take(5)->get() as $report)
+                                @forelse($reports as $report)
                                     <tr>
-                                        <td class="ps-4 fw-bold">#INC-{{ $report->id }}</td>
-                                        <td><span class="text-capitalize">{{ $report->type }}</span></td>
-                                        <td>
-                                            <span class="badge bg-{{ $report->status == 'resolved' ? 'success' : 'info' }}">
-                                                {{ ucfirst($report->status) }}
-                                            </span>
+                                        <td class="ps-4">
+                                            <span class="fw-bold">#INC-{{ $report->id }}</span> {{ $report->title }}
+                                            <div class="small text-muted"><span class="text-capitalize">{{ str_replace('_', ' ', $report->type) }}</span> &middot; {{ $report->created_at->format('M d, Y h:i A') }}</div>
                                         </td>
+                                        <td class="small">@include('admin.residents._responders', ['incident' => $report])</td>
+                                        <td>{!! \App\Support\IncidentStatus::badge($report->status, $report->resolution_method) !!}</td>
                                         <td class="text-end pe-4">
-                                            <a href="{{ route('admin.reports.show', $report->id) }}" class="btn btn-sm btn-outline-primary">View Report</a>
+                                            <a href="{{ route('admin.reports.show', $report->id) }}" class="btn btn-sm btn-outline-primary">View</a>
                                         </td>
                                     </tr>
                                 @empty

@@ -54,23 +54,15 @@ class PersonnelAttendanceController extends Controller
             $this->recordAudit($request, $personnel, $attendance, AuditLog::ACTION_TIME_OUT, $now,
                 "Timed out from " . ($attendance->location->location_name ?? 'N/A') . " ({$attendance->hours_worked} hrs worked)");
 
-            // Collate all sessions for the same shift date to calculate total daily earnings
-            $dailyTotalHours = Attendance::where('user_id', $personnel->id)
-                ->where('date', $attendance->date)
-                ->whereNotNull('time_out')
-                ->sum('hours_worked');
-
+            // Earnings use paid hours: only the time inside the assigned shift (as in the web personnel log)
             $hourlyRate = $personnel->hourly_rate ?? 0;
-            $dailyEarnings = round($dailyTotalHours * $hourlyRate, 2);
+            $day = \App\Services\DutyLog::totals(\App\Services\DutyLog::rows($personnel, $attendance->date->copy(), $attendance->date->copy()));
+            $dailyTotalHours = $day->paid_hours;
+            $dailyEarnings = $day->pay;
 
-            // Calculate Monthly Summary for immediate mobile feedback
-            $startOfMonth = Carbon::now()->startOfMonth()->toDateString();
-            $endOfMonth = Carbon::now()->endOfMonth()->toDateString();
-            
-            $monthlyTotalHours = Attendance::where('user_id', $personnel->id)
-                ->whereBetween('date', [$startOfMonth, $endOfMonth])
-                ->sum('hours_worked');
-            $monthlySalary = round($monthlyTotalHours * $hourlyRate, 2);
+            $month = \App\Services\DutyLog::totals(\App\Services\DutyLog::rows($personnel, Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()));
+            $monthlyTotalHours = $month->paid_hours;
+            $monthlySalary = $month->pay;
 
             return response()->json([
                 'status' => 'success',
@@ -101,6 +93,16 @@ class PersonnelAttendanceController extends Controller
             ], 403);
         }
 
+        // No time in once today's shift is over (e.g. duty until 4:00 PM: refused from 4:00 PM)
+        $shiftStart = Carbon::parse($now->toDateString() . ' ' . Carbon::parse($schedule->start_time)->format('H:i:s'), $timezone);
+        $shiftEnd = Carbon::parse($now->toDateString() . ' ' . Carbon::parse($schedule->end_time)->format('H:i:s'), $timezone);
+        if ($shiftEnd->gt($shiftStart) && $now->gte($shiftEnd)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Time in denied: your duty today ended at " . $shiftEnd->format('g:i A') . ".",
+            ], 403);
+        }
+
         // Validate Geofence (Personnel must be within 200m of the location)
         if (!$lat || !$lon) {
             return response()->json([
@@ -119,7 +121,7 @@ class PersonnelAttendanceController extends Controller
         }
 
         $alreadyTimedInToday = Attendance::where('user_id', $personnel->id)
-            ->where('date', $now->toDateString())
+            ->whereDate('date', $now->toDateString())
             ->exists();
 
         $status = $alreadyTimedInToday ? 'On Time' : $this->determineStatus($schedule, $now);
@@ -220,11 +222,10 @@ class PersonnelAttendanceController extends Controller
         $startOfMonth = Carbon::parse($month)->startOfMonth();
         $endOfMonth = Carbon::parse($month)->endOfMonth();
 
-        $totalHours = Attendance::where('user_id', $personnel->id)
-            ->whereBetween('date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
-            ->sum('hours_worked');
-
-        $monthlySalary = round($totalHours * ($personnel->hourly_rate ?? 0), 2);
+        // Same rule as the web personnel log: only time inside the assigned shift is paid
+        $totals = \App\Services\DutyLog::totals(\App\Services\DutyLog::rows($personnel, $startOfMonth, $endOfMonth));
+        $totalHours = $totals->paid_hours;
+        $monthlySalary = $totals->pay;
 
         return response()->json([
             'status' => 'success',
