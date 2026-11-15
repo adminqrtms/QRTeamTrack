@@ -178,8 +178,12 @@ class PushNotificationTest extends TestCase
         $this->assertCount(1, $messages);
         $this->assertSame('on-duty-phone', $messages[0]['token']);
 
-        // Sent as a data-only message so the app can show a full-screen alert.
-        $this->assertArrayNotHasKey('notification', $messages[0]);
+        // A real notification on the SOS alarm channel, so Android shows it even
+        // when the app is closed; the data lets the app upgrade it to full screen.
+        $this->assertSame('EMERGENCY SOS!', $messages[0]['notification']['title']);
+        $this->assertSame('sos_alarm', $messages[0]['android']['notification']['channel_id']);
+        $this->assertSame('alarm_' . $alarmId, $messages[0]['android']['notification']['tag']);
+        $this->assertSame('PRIORITY_MAX', $messages[0]['android']['notification']['notification_priority']);
         $this->assertSame('EMERGENCY SOS!', $messages[0]['data']['title']);
         $this->assertStringContainsString($this->resident->name, $messages[0]['data']['body']);
         $this->assertSame('1', $messages[0]['data']['full_screen']);

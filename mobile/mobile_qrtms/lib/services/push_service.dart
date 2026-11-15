@@ -45,7 +45,20 @@ class PushService {
   final FlutterLocalNotificationsPlugin localNotifications =
       FlutterLocalNotificationsPlugin();
 
-  static const String _emergencyChannelId = 'emergency_channel';
+  /// Personnel SOS alarm: alarm sound + strong vibration. The server sends the
+  /// SOS on this channel, so Android rings it even when the app is closed.
+  static const String _emergencyChannelId = 'sos_alarm';
+
+  /// Older general "Emergency" channel (e.g. "Help is on the way" for residents).
+  static const String _noticeChannelId = 'emergency_channel';
+
+  static final Int64List _sosVibration =
+      Int64List.fromList(<int>[0, 1000, 500, 1000, 500, 1000, 500, 1500]);
+  static const _alarmSound =
+      UriAndroidNotificationSound('content://settings/system/alarm_alert');
+
+  /// Same tag as the server's notification, so the full-screen alarm replaces it.
+  static String sosTag(Object? alarmId) => 'alarm_$alarmId';
 
   /// Buttons on the SOS notification.
   static const String actionRespond = 'respond';
@@ -226,10 +239,16 @@ class PushService {
       NotificationDetails(
         android: AndroidNotificationDetails(
           _emergencyChannelId,
-          'Emergency Alarms',
+          'SOS Alarm',
           importance: Importance.max,
           priority: Priority.max,
           category: AndroidNotificationCategory.alarm,
+          tag: sosTag(data['alarm_id']),
+          playSound: true,
+          sound: _alarmSound,
+          enableVibration: true,
+          vibrationPattern: _sosVibration,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
           fullScreenIntent: true,
           visibility: NotificationVisibility.public,
           ticker: 'EMERGENCY SOS',
@@ -351,12 +370,53 @@ class PushService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(
-          const AndroidNotificationChannel(
+          AndroidNotificationChannel(
             _emergencyChannelId,
-            'Emergency Alarms',
+            'SOS Alarm',
+            description:
+                'Emergency SOS from residents: alarm sound and vibration',
             importance: Importance.max,
+            playSound: true,
+            sound: _alarmSound,
+            enableVibration: true,
+            vibrationPattern: _sosVibration,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
           ),
         );
+    await plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _noticeChannelId,
+            'Emergency Notices',
+            importance: Importance.high,
+          ),
+        );
+  }
+
+  /// Rings the SOS alarm (sound + vibration, repeating) for an alarm shown in
+  /// the app, e.g. while the EMERGENCY ALARM pop-up is open.
+  Future<void> startSosAlarm(Map<String, dynamic> alarm) async {
+    if (kIsWeb) return;
+    final resident = alarm['user'] is Map ? alarm['user']['name'] : null;
+    await showFullScreenAlert({
+      'type': 'alarm',
+      'alarm_id': '${alarm['id']}',
+      'title': 'EMERGENCY SOS!',
+      'body': resident != null
+          ? 'Resident $resident needs help.'
+          : 'A resident needs help.',
+    });
+  }
+
+  /// Stops the SOS alarm sound for that alarm.
+  Future<void> stopSosAlarm(Object? alarmId) async {
+    if (kIsWeb) return;
+    try {
+      await localNotifications.cancel(_sosNotificationId, tag: sosTag(alarmId));
+      await localNotifications.cancel(_sosNotificationId);
+    } catch (_) {}
   }
 
   /// Stops notifications to this phone. Call before clearing the login.
@@ -441,7 +501,7 @@ class PushService {
       if (id == null) return;
 
       // Stop the repeating alarm sound
-      await localNotifications.cancel(_sosNotificationId);
+      await stopSosAlarm(id);
 
       if (actionId == actionRespond) {
         // "I'M COMING" pressed on the notification
@@ -525,11 +585,16 @@ class PushService {
       return;
     }
 
-    // SOS while the app is open: show the in-app pop-up right away.
+    // SOS while the app is open: the home screen shows the EMERGENCY ALARM
+    // pop-up (which rings); on other screens, ring the alarm notification.
     if (data['type'] == 'alarm') {
       final id = int.tryParse('${data['alarm_id']}');
       if (id != null && ApiService.role == 'personnel') {
-        _alarmAlertController.add(id);
+        if (_alarmAlertController.hasListener) {
+          _alarmAlertController.add(id);
+        } else if (data['full_screen'] == '1') {
+          showFullScreenAlert(data);
+        }
       }
       return;
     }

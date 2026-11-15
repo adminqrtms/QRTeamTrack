@@ -18,6 +18,8 @@ class PushNotificationService
 {
     public const CHANNEL_CHAT = 'chat_channel';
     public const CHANNEL_EMERGENCY = 'emergency_channel';
+    /** Personnel SOS: alarm sound + vibration (created by the app). */
+    public const CHANNEL_SOS = 'sos_alarm';
 
     private ?array $credentials = null;
 
@@ -117,13 +119,15 @@ class PushNotificationService
     private function sendToToken(string $token, string $title, string $body, array $data, string $channel, bool $fullScreen): void
     {
         if ($fullScreen) {
-            // Data-only: Android hands it to the app (even when closed), which
-            // shows the full-screen alert itself.
-            $message = $this->dataMessage($token, $data + [
+            // A real notification on the SOS alarm channel: Android shows it
+            // (alarm sound + vibration) even when the app is closed or killed.
+            // When the app can start, it replaces it with the full-screen alarm
+            // (same tag), so the alert never depends on the app waking up.
+            $message = $this->notificationMessage($token, $title, $body, $data + [
                 'title' => $title,
                 'body' => $body,
                 'full_screen' => '1',
-            ]);
+            ], self::CHANNEL_SOS);
         } else {
             $message = $this->notificationMessage($token, $title, $body, $data, $channel);
         }
@@ -179,8 +183,9 @@ class PushNotificationService
             // Newer notifications with the same tag replace older ones.
             $androidNotification['tag'] = $data['tag'];
         }
-        if ($channel === self::CHANNEL_EMERGENCY) {
+        if (in_array($channel, [self::CHANNEL_EMERGENCY, self::CHANNEL_SOS], true)) {
             $androidNotification['notification_priority'] = 'PRIORITY_MAX';
+            $androidNotification['visibility'] = 'PUBLIC';
         }
 
         return [

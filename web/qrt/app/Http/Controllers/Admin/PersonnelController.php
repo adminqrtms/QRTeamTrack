@@ -298,11 +298,14 @@ class PersonnelController extends Controller
     {
         $personnel = User::where('role', 'personnel')->findOrFail($id);
         $period = PersonnelLog::period($request);
+        $log = PersonnelLog::build($personnel, $period);
 
-        return view('admin.personnels.attendance', array_merge(
-            compact('personnel', 'period'),
-            PersonnelLog::build($personnel, $period),
-        ));
+        // On screen: newest first (current duty at the top). The printout keeps date order.
+        foreach (['duties', 'responses', 'solved'] as $list) {
+            $log[$list] = $log[$list]->reverse()->values();
+        }
+
+        return view('admin.personnels.attendance', array_merge(compact('personnel', 'period'), $log));
     }
 
     /** Printable personnel log (basis for salary). */

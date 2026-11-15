@@ -277,6 +277,20 @@ class IncidentWorkflowTest extends TestCase
             ->assertSee('Approved by');
     }
 
+    public function test_duty_history_shows_newest_first(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-15 18:00:00', 'Asia/Manila'));
+        $this->shiftToday('15:00', '17:00');
+        Schedule::query()->update(['schedule_date_start' => '2026-11-01', 'schedule_date_end' => '2026-11-30']);
+        foreach (['2026-11-10', '2026-11-12', '2026-11-14'] as $day) {
+            Attendance::create(['user_id' => $this->juan->id, 'location_id' => $this->location->id, 'date' => $day,
+                'time_in' => '15:00:00', 'time_out' => '17:00:00', 'status' => 'On Time']);
+        }
+
+        $this->actingAs($this->admin)->get("/admin/personnels/{$this->juan->id}/attendance?month=2026-11")
+            ->assertSeeInOrder(['Sat, Nov 14, 2026', 'Thu, Nov 12, 2026', 'Tue, Nov 10, 2026']);
+    }
+
     public function test_resident_page_lists_who_responded(): void
     {
         $report = $this->report();
@@ -335,6 +349,9 @@ class IncidentWorkflowTest extends TestCase
         $ids = array_column($this->getJson('/api/reports')->json('data'), 'id');
         sort($ids);
         $this->assertSame([$mine->id, $other->id], $ids);
+
+        // History screen: only the ones Juan responded to, even while on duty
+        $this->assertSame([$mine->id], array_column($this->getJson('/api/reports?responded=1')->json('data'), 'id'));
     }
 
     public function test_menu_says_personnel_logs(): void

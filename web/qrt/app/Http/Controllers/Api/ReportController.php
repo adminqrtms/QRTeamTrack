@@ -33,6 +33,10 @@ class ReportController extends Controller
 
             // On duty: everything at their station. Always: the ones they responded to
             // (so resolved incidents stay in their list, as in the resident's app).
+            // ?responded=1: only the ones this personnel responded to (history screen)
+            if ($request->boolean('responded')) {
+                $currentAttendance = null;
+            }
             $query->where(function ($q) use ($currentAttendance, $user) {
                 if ($currentAttendance) {
                     $q->where('location_id', $currentAttendance->location_id);

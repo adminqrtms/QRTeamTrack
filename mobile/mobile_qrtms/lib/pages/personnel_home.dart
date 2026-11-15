@@ -11,6 +11,7 @@ import 'conversations_page.dart';
 import '../services/chat_service.dart';
 import '../services/realtime_service.dart';
 import '../services/push_service.dart';
+import 'response_history_page.dart';
 import '../services/call_service.dart';
 
 class PersonnelHomePage extends StatefulWidget {
@@ -151,9 +152,8 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
     // can't be reached, go by what this screen shows.
     final res = await ApiService.getAttendanceStatus();
     if (!mounted) return;
-    final onDuty = res.containsKey('is_on_duty')
-        ? res['is_on_duty'] == true
-        : isOnDuty;
+    final onDuty =
+        res.containsKey('is_on_duty') ? res['is_on_duty'] == true : isOnDuty;
 
     if (res.containsKey('is_on_duty') && onDuty != isOnDuty) {
       setState(() => isOnDuty = onDuty);
@@ -365,6 +365,9 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
 
     _displayedAlarmId = alarm['id'];
 
+    // Ring and vibrate (alarm sound) until a button closes the pop-up
+    PushService.instance.startSosAlarm(alarm);
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -450,7 +453,7 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
       if (mounted && _displayedAlarmId == alarm['id']) {
         _displayedAlarmId = null;
       }
-    });
+    }).then((_) => PushService.instance.stopSosAlarm(alarm['id']));
   }
 
   Future<Position?> _getCurrentLocation() async {
@@ -786,6 +789,19 @@ class _PersonnelHomePageState extends State<PersonnelHomePage>
                   Colors.teal,
                   onTap: () {
                     Navigator.pushNamed(context, '/colleagues');
+                  },
+                ),
+                _buildDashboardItem(
+                  Icons.assignment_turned_in,
+                  "Responded Incidents",
+                  Colors.indigo,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ResponseHistoryPage(),
+                      ),
+                    );
                   },
                 ),
                 _buildDashboardItem(
